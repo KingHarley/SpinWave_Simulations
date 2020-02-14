@@ -277,18 +277,20 @@ def SLh(K4, k):
 			return complex(0, k / K4)
 
 def Cmy(Q, k, wH, w):
-	numerator = -1 * complex(omegaM * Q * k - w * Q ** 2 + w * k ** 2, w ** 2 * sigmaFM * muZero)
-	denomOne = w * sigmaFM * wH * muZero
-	denomTwo = complex(0, -1 * Q ** 4 * alphaExchange * omegaM)
-	denomThree = w * sigmaFM * muZero * omegaM
-	denomFour = -1 * Q ** 2 * alphaExchange * w * sigmaFM * muZero * omegaM
-	denomFive = alphaExchange * w * sigmaFM * k ** 2 * muZero * omegaM
-	denomSix = complex(0, -1 * k ** 2 * wH)
-	denomSeven = complex(0, -1 * alphaExchange * k ** 4 * omegaM)
-	denomEight = complex(0, 2 * Q ** 2 * alphaExchange * k ** 2 * omegaM)
-	denomNine = complex(0, Q ** 2 * omegaM)
-	denomTen = complex(0, Q ** 2 * wH)
-	result = numerator / (denomOne + denomTwo + denomThree + denomFour + denomFive + denomSix + denomSeven + denomEight + denomNine + denomTen)
+	numerator = -1 * (omegaM * Q * k - w * Q ** 2 + w * k ** 2 + w ** 2 * sigmaFM * muZero * 1j)
+	denom = numpy.zeros(10, dtype = complex)
+	denom[0] = w * sigmaFM * wH * muZero
+	denom[1] = -1 * Q ** 4 * alphaExchange * omegaM * 1j
+	denom[2] = w * sigmaFM * muZero * omegaM
+	denom[3] = -1 * Q ** 2 * alphaExchange * w * sigmaFM * muZero * omegaM
+	denom[4] = alphaExchange * w * sigmaFM * k ** 2 * muZero * omegaM
+	denom[5] = -1 * k ** 2 * wH * 1j
+	denom[6] = -1 * alphaExchange * k ** 4 * omegaM * 1j
+	denom[7] = 2 * Q ** 2 * alphaExchange * k ** 2 * omegaM * 1j
+	denom[8] = Q ** 2 * omegaM * 1j
+	denom[9] = Q ** 2 * wH * 1j
+	denominator = denom.sum()
+	result = numerator / denominator
 	return result
 
 def Chx(Q, k, wH, w):
@@ -439,7 +441,7 @@ def create_d_var(k, wH, w):
 	secondTerm = numpy.zeros(4, dtype = complex)
 	secondTerm[0] = -1 * k ** 4 * omegaM ** 2
 	secondTerm[1] = -2 * wH * k ** 4 * omegaM
-	secondTerm[2] = -2 * w * sigmaFM * wH * muZero * k ** 2 * 1j
+	secondTerm[2] = -2 * w * sigmaFM * wH * muZero * k ** 2 * omegaM * 1j
 	secondTerm[3] = -2 * w * sigmaFM * k ** 2 * muZero * omegaM ** 2 * 1j
 
 	thirdTerm = numpy.zeros(7, dtype = complex)
@@ -459,7 +461,7 @@ def create_DD_var(a, b, c, d):
 	term[0] = c ** 3 / (27 * a ** 3)
 	term[1] = d ** 2 / (4 * a ** 2)
 	term[2] = (b ** 3 * d) / (27 * a ** 4)
-	term[3] = -1 * (b ** 3 * c ** 2) / (108 * a ** 4)
+	term[3] = -1 * (b ** 2 * c ** 2) / (108 * a ** 4)
 	term[4] = -1 * (b * c * d) / (6 * a ** 3)
 	term[5] = -1 * b ** 3 / (27 * a ** 3)
 	term[6] = -1 * d / (2 * a)
@@ -473,10 +475,11 @@ def create_DD_var(a, b, c, d):
 def create_Q1_var(a, b, c, DD):
 	term = numpy.zeros(3, dtype = complex)
 	term[0] = c / (3 * a)
-	term[1] = -1 * b ** 2 / (9 * a ** 2)
+	term[1] = (-1 * b ** 2) / (9 * a ** 2)
 	term[2] = -1 * b / (3 * a)
-	rootterm = DD - (term[0:2].sum() / DD) + term[2]
-	result = cmath.sqrt(rootterm)
+	rootterm = DD - ((term[0] + term[1]) / DD) + term[2]
+	#result = cmath.sqrt(rootterm)
+	result = cmath.sqrt(DD - (c / (3 * a) - b ** 2 / (9 * a ** 2)) / DD - b / (3 * a))
 	return result
 
 def create_Q2_var(a, b, c, DD):
@@ -505,7 +508,7 @@ def create_Q3_var(a, b, c, DD):
 def create_Cmy_vec(Q1, Q2, Q3, k, wH, w):
 	temp_Cmy = numpy.zeros(6, dtype = complex)
 	temp_Cmy[0] = Cmy(Q1, k, wH, w)
-	temp_Cmy[1] = Cmy(Q1, k, wH, w)
+	temp_Cmy[1] = Cmy(Q2, k, wH, w)
 	temp_Cmy[2] = Cmy(Q3, k, wH, w)
 	temp_Cmy[3] = Cmy(-Q1, k, wH, w)
 	temp_Cmy[4] = Cmy(-Q2, k, wH, w)
