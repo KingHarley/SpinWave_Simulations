@@ -3,6 +3,7 @@ import cmath
 import math
 import numpy
 import decimal
+import scipy
 from scipy import integrate
 
 #Defining some variables
@@ -23,6 +24,13 @@ alphaExchange = 2 * exchangeA / (muZero * satMs ** 2)
 wsignal = 648 * 10 ** -9
 wground = 324 * 10 ** -9
 wgap = 334 * 10 ** -9
+length_Antenna = 20 * 10 ** -6
+
+#Setting up simulation points across Antenna
+pts_signal = 52
+del_width = wsignal / pts_signal
+pts_total = (wsignal + 2 * wground) / del_width
+pts_ground = (pts_total - pts_signal) / 2
 
 #Metal Characteristics
 epsilonSi = 3.8
@@ -33,6 +41,11 @@ thicknessSi = 80 * 10 ** -9
 thicknessFM = 20 * 10 ** -9
 thicknessRu = 5 * 10 ** -9
 thicknessPt = 5 * 10 ** -9
+thicknessAl = 100 * 10 ** -9
+resis_Al = 2.65 * 10 ** -8
+var_R1 = resis_Al / (thicknessAl * wsignal)
+var_R2 = resis_Al / (thicknessAl * wground)
+var_zc = 50
 
 #Anisotropy and DMI constants
 surface_Ks1 = 0
@@ -47,6 +60,16 @@ surface_Ds1 = -1 * (0 * 2.7 * 10 ** -3 * 0.3 * 10 ** -9)
 surface_Ds2 = 0
 bulk_DD1 = 1j * surface_Ds1 / exchangeA
 bulk_DD2 = -1j * surface_Ds2 / exchangeA
+
+# Function for complex integration, found at https://stackoverflow.com/questions/5965583/use-scipy-integrate-quad-to-integrate-complex-numbers
+def complex_quadrature(func, lower_bound, upper_bound, **kwargs):
+    def real_func(x):
+        return scipy.real(func(x))
+    def imag_func(x):
+        return scipy.imag(func(x))
+    real_integral = integrate.quad(real_func, lower_bound, upper_bound, **kwargs)
+    imag_integral = integrate.quad(imag_func, lower_bound, upper_bound, **kwargs)
+    return (real_integral[0] + 1j*imag_integral[0], real_integral[1:], imag_integral[1:])
 
 def Z0(kk, kks, kkl, kkls):
 	numerator = 60 * math.pi
@@ -78,7 +101,7 @@ def kellip(x):
 		b = bn
 		c = cn
 	return K
-	
+
 def epsilonEff(kk, kks, kkl, kkls):
 	numerator = kellip(kks) * kellip(kkl) / (kellip(kk) * kellip(kkls))
 	denominator = kellip(kks) * kellip(kkl) / (kellip(kk) * kellip(kkls))
@@ -297,13 +320,13 @@ def Chx(Q, k, wH, w):
 	num = numpy.zeros(19, dtype = complex)
 	num[0] = Q ** 3 * w * k * 1j
 	num[1] = 2 * Q ** 2 * alphaExchange * k ** 4 * omegaM * 1j
-	num[2] = Q * w ** 2 * sigmaFM * k * muZero * 1j
+	num[2] = Q * w ** 2 * sigmaFM * k * muZero
 	num[3] = -1 * Q ** 2 * w * sigmaFM * wH * muZero
 	num[4] = -1 * Q ** 2 * w * sigmaFM * muZero * omegaM
 	num[5] = 2 * w * sigmaFM * k ** 2 * wH * muZero
 	num[6] = w * sigmaFM * k ** 2 * muZero * omegaM
 	num[7] = Q ** 4 * alphaExchange * w * sigmaFM * muZero * omegaM
-	num[8] = 2 * alphaExchange * w * sigmaFM * alphaExchange * k ** 4 * muZero * omegaM
+	num[8] = 2 * alphaExchange * w * sigmaFM * k ** 4 * muZero * omegaM
 	num[9] =  -3 * Q ** 2 * alphaExchange * w * sigmaFM * k ** 2 * muZero * omegaM
 	num[10] = -1 * Q * w * k ** 3 * 1j
 	num[11] = -1 * Q ** 2 * alphaExchange * w ** 2 * sigmaFM ** 2 * muZero ** 2 * omegaM * 1j
@@ -323,7 +346,7 @@ def Chx(Q, k, wH, w):
 	denomTwo[0] = w * sigmaFM * wH * muZero
 	denomTwo[1] = -1 * Q ** 4 * alphaExchange * omegaM * 1j
 	denomTwo[2] = w * sigmaFM * muZero * omegaM
-	denomTwo[3] = -1 * Q ** 2 * alphaExchange * w * muZero * omegaM
+	denomTwo[3] = -1 * Q ** 2 * alphaExchange * w * sigmaFM * muZero * omegaM
 	denomTwo[4] = alphaExchange * w * sigmaFM * k ** 2 * muZero * omegaM
 	denomTwo[5] = -1 * k ** 2 * wH * 1j
 	denomTwo[6] = -1 * alphaExchange * k ** 4 * omegaM * 1j
@@ -478,8 +501,7 @@ def create_Q1_var(a, b, c, DD):
 	term[1] = (-1 * b ** 2) / (9 * a ** 2)
 	term[2] = -1 * b / (3 * a)
 	rootterm = DD - ((term[0] + term[1]) / DD) + term[2]
-	#result = cmath.sqrt(rootterm)
-	result = cmath.sqrt(DD - (c / (3 * a) - b ** 2 / (9 * a ** 2)) / DD - b / (3 * a))
+	result = cmath.sqrt(rootterm)
 	return result
 
 def create_Q2_var(a, b, c, DD):
@@ -642,13 +664,53 @@ def MM(k, wH, w):
 	vec_M = create_M_vec(matrix_A, matrix_B, var_DD, det_B)
 	var_hxk = create_hxk_var(vec_Chx, vec_M, var_Q1, var_Q2, var_Q3)
 	var_hyl = create_hyl_var(k, var_K4, var_hxk)
-	result_ek = -1 * (centralFreq * muZero * var_hyl) / k
+	result_ek = -1 * (w * muZero * var_hyl) / k
 	return result_ek
 
+def create_Gind_integral(z, w, k):
+	arg_One = cmath.sqrt(Q4(w) + k ** 2)
+	arg_Two = thicknessSi * abs(k)
+	num = numpy.zeros(2, dtype = complex)
+	num[0] = k ** 2 * cmath.cosh(arg_One * thicknessPt) * cmath.cosh(arg_Two)
+	num[1] = arg_One * cmath.sinh(arg_One * thicknessPt) * cmath.sinh(arg_Two) * abs(k)
+	numerator = -1j * num.sum() * cmath.exp(-abs(k) * thicknessSi) * cmath.cos(k * z)
+	denom = numpy.zeros(2, dtype = complex)
+	denom[0] = k ** 2 * cmath.cosh(arg_One * thicknessPt)
+	denom[1] = arg_One * cmath.sinh(arg_One * thicknessPt) * abs(k)
+	denominator = abs(k) * denom.sum()
+	result = numerator / denominator
+	return result
+	 
+def Gind(z, w):
+	upper_Bound = 20 * QQ(w)
+	lower_Bound = 0
+	integral = complex_quadrature(lambda x : create_Gind_integral(z, w, x), lower_Bound, upper_Bound, limit = 500)[0]
+	first_Term = 2 * (-w * muZero) / (2 * cmath.pi) * integral
+	argument_One = 2 * (thicknessSi + thicknessPt) * 20 * QQ(w) - 20 * QQ(w) * z * 1j
+	argument_Two = 2 * (thicknessSi + thicknessPt) * 20 * QQ(w) + 20 * QQ(w) * z * 1j
+	second_Term = 2 * (-w * muZero * -1j) / (2 * cmath.pi) * ((Ei(argument_One) + Ei(argument_Two)) / 2 - Ci(z * 20 * QQ(w)))
+	result = first_Term + second_Term
+	return result
+
+def create_eG_integral(k, wH, w, z):
+	first_Term = MM(k, wH, w) * cmath.exp(-1j * k * z)
+	second_Term = MM(-k, wH, w) * cmath.exp(1j * k * z)
+	result = first_Term + second_Term
+	return result
+
+def eG(H, z, w):
+	upper_Bound = 100 * math.pi / w
+	lower_Bound = 1
+	integral = complex_quadrature(lambda x : create_eG_integral(x, gamma * H, w, z), lower_Bound, upper_Bound)[0]
+	first_Term = 1 / (2 * math.pi) * integral
+	second_Term = Gind(z, w)
+	result = first_Term + second_Term
+	return result
 
 def main():
-	antennaCalcs()
+	Ycss = antennaCalcs()
 	MM(1,1,1)
+
 
 if __name__ == '__main__':
 	main()
