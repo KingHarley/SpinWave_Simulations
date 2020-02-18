@@ -1,22 +1,19 @@
 #All imports go here
-import cmath
-import math
+import time
 import numpy
-import decimal
 import scipy
 from scipy import integrate
 
 #Defining some variables
-centralFreq = math.pi * (2 * 10 * 10 ** 9)
+centralFreq = numpy.pi * (2 * 10 * 10 ** 9)
 epsZero = 8.85 * 10 ** -12
-muZero = 4 * math.pi * 10 ** -7
+muZero = 4 * numpy.pi * 10 ** -7
 appliedH = 228 * 79.57747
-gamma = 2 * math.pi * 3 * 10 ** 10 * 4 * math.pi * 10 ** -7
+gamma = 2 * numpy.pi * 3 * 10 ** 10 * 4 * numpy.pi * 10 ** -7
 satMs = 16500 / (10 ** 4 * muZero) * numpy.sign(appliedH)
 gilDamping = 0.008
 omegaH = gamma * appliedH
 omegaM = gamma * satMs
-deltaH = complex(0, centralFreq * gilDamping / gamma)
 exchangeA = 2 * 10 ** -7 * 10 ** -4
 alphaExchange = 2 * exchangeA / (muZero * satMs ** 2)
 
@@ -25,12 +22,20 @@ wsignal = 648 * 10 ** -9
 wground = 324 * 10 ** -9
 wgap = 334 * 10 ** -9
 length_Antenna = 20 * 10 ** -6
+distance_Antennas = 2.464 * 10 ** -6
 
 #Setting up simulation points across Antenna
-pts_signal = 52
-del_width = wsignal / pts_signal
-pts_total = (wsignal + 2 * wground) / del_width
-pts_ground = (pts_total - pts_signal) / 2
+pts_ground = 1
+del_width = wground / pts_ground
+pts_total = int(numpy.ceil((wsignal + 2 * wground) / del_width))
+pts_signal = pts_total - 2 * pts_ground
+pts_max = max(pts_signal, pts_ground)
+
+#pts_signal = 52
+#del_width = wsignal / pts_signal
+#pts_total = numpy.ceil((wsignal + 2 * wground) / del_width)
+#pts_ground = (pts_total - pts_signal) / 2
+#pts_max = max(pts_signal, pts_ground)
 
 #Metal Characteristics
 epsilonSi = 3.8
@@ -72,21 +77,21 @@ def complex_quadrature(func, lower_bound, upper_bound, **kwargs):
     return (real_integral[0] + 1j*imag_integral[0], real_integral[1:], imag_integral[1:])
 
 def Z0(kk, kks, kkl, kkls):
-	numerator = 60 * math.pi
-	denominator = math.sqrt(epsilonEff(kk, kks, kkl, kkls)) * ((kellip(kk) / kellip(kks)) + (kellip(kkl) / kellip(kkls)))
+	numerator = 60 * numpy.pi
+	denominator = numpy.sqrt(epsilonEff(kk, kks, kkl, kkls)) * ((kellip(kk) / kellip(kks)) + (kellip(kkl) / kellip(kkls)))
 	return (numerator / denominator)
 
 def kellip(x):
 	#print("x = ", x)
 	a = 1
-	b = math.sqrt(1 - x**2)
+	b = numpy.sqrt(1 - x**2)
 	c = x
-	K = math.pi / (2 * a)
+	K = numpy.pi / (2 * a)
 	p = 1
 	
 	while p >= (10 ** (-10)):
 		an = (a + b) / 2
-		bn = math.sqrt(a*b)
+		bn = numpy.sqrt(a*b)
 		cn = (a - b) / 2
 		#print ("c = ", c)
 		#print ("cn = ", cn)
@@ -96,7 +101,7 @@ def kellip(x):
 			#print("Division by Zero!")
 			return K
 		#print("p = ", p)
-		K = math.pi / (2 * a)
+		K = numpy.pi / (2 * a)
 		a = an
 		b = bn
 		c = cn
@@ -110,7 +115,7 @@ def epsilonEff(kk, kks, kkl, kkls):
 
 def gg(k):
 	if abs(k) < 40 / thicknessSi:
-		return lambda x : (-1 * math.sinh(thicknessSi * abs(x)) / (epsZero * abs(x) * (math.sinh(thicknessSi * abs(x)) + epsilonSi * math.cosh(thicknessSi * abs(x)))))
+		return lambda x : (-1 * numpy.sinh(thicknessSi * abs(x)) / (epsZero * abs(x) * (numpy.sinh(thicknessSi * abs(x)) + epsilonSi * numpy.cosh(thicknessSi * abs(x)))))
 	else:
 		return lambda x : (-1 / (epsZero * abs(x) * (1 + epsilonSi))) 
 	
@@ -118,7 +123,7 @@ def Ei(x):
 	ei = 1
 	for n in range(600,0,-1):
 		ei = 1 + n / (x + (n + 1) / ei)
-	ei = cmath.exp(-x) / (x + 1 / ei)
+	ei = numpy.exp(-x) / (x + 1 / ei)
 	return ei
 
 def Ci(x):
@@ -126,9 +131,9 @@ def Ci(x):
 	return result
 
 def Gsi(k):
-	integral = lambda x, t: math.cos(t*x) * gg(k)(x)
+	integral = lambda x, t: numpy.cos(t*x) * gg(k)(x)
 	integrated = integrate.quad(integral, 1, 40 / thicknessSi, args =(k), limit = 500)
-	result = ((integrated[0] + Ci(40 * k / thicknessSi) / (epsZero * (1 + epsilonSi))) / math.pi)
+	result = ((integrated[0] + Ci(40 * k / thicknessSi) / (epsZero * (1 + epsilonSi))) / numpy.pi)
 	return result.real
 
 def Qp(numsignal, numground, meshpts, nummax, deltaW):
@@ -175,11 +180,6 @@ def Qp(numsignal, numground, meshpts, nummax, deltaW):
 			indexTwo = abs(i+numground-1-j)
 			a[i,j+numground+numsignal] = g31[indexOne] * deltaW
 			a[i+numground+numsignal, j] = g31[indexTwo] * deltaW
-
-	print(numpy.linalg.cond(a))
-	print(g33)
-	print(g32)
-	print(g31)
 	try:
 		ww = numpy.linalg.solve(a, b)
 	except numpy.linalg.LinAlgError:
@@ -214,18 +214,16 @@ def Qp(numsignal, numground, meshpts, nummax, deltaW):
 		gw[i+2] = ww[i]
 	return gw
 
-
-
 def antennaCalcs():
 	kk = wsignal / (wsignal + 2 * wgap)
-	kks = math.sqrt(1 - kk ** 2)
-	kkl = math.tanh(math.pi / 4 *(wsignal / thicknessSi)) / math.tanh(math.pi / 4 * ((wsignal + 2 * wgap) / thicknessSi))
-	kkls = math.sqrt(1 - kkl ** 2)
+	kks = numpy.sqrt(1 - kk ** 2)
+	kkl = numpy.tanh(numpy.pi / 4 *(wsignal / thicknessSi)) / numpy.tanh(numpy.pi / 4 * ((wsignal + 2 * wgap) / thicknessSi))
+	kkls = numpy.sqrt(1 - kkl ** 2)
 	epsEff = epsilonEff(kk, kks, kkl, kkls)
 	z0 = Z0(kk, kks, kkl, kkls)
-	gammafs = complex(0, centralFreq * math.sqrt(epsZero * epsEff * muZero))
+	gammafs = complex(0, centralFreq * numpy.sqrt(epsZero * epsEff * muZero))
 	numsignal = 520
-	numground = math.floor(numsignal / 2)
+	numground = int(numpy.floor(numsignal / 2))
 	meshpts = numsignal + 2 * numground
 	nummax = max(numsignal, numground)
 	deltaW = (wsignal + 2 * wground) / meshpts
@@ -233,18 +231,18 @@ def antennaCalcs():
 	Ycss = complex(0, Qpresult[0])
 	Q1 = (Qpresult[2:numground+2].sum() + Qpresult[numground+numsignal+2:meshpts+2].sum()) * deltaW
 	Q2 = (deltaW*Qpresult[numground+2:numground+numsignal+2]).sum()
-	print(Ycss)
-	print(Q1)
-	print(Q2)
 	linearCapacitance = Ycss * centralFreq
-	print(linearCapacitance)
 	return linearCapacitance
 	
 
 def ww(k, H):
 	firstTerm = gamma**2 * H * (H + satMs)
-	secondTerm = ((gamma * satMs) ** 2)/4 * (-1 * math.exp(-2 * abs(k) * thicknessFM) + 1)
-	result = math.sqrt(firstTerm + secondTerm)
+	secondTerm = ((gamma * satMs) ** 2)/4 * (-1 * numpy.exp(-2 * abs(k) * thicknessFM) + 1)
+	result = numpy.sqrt(firstTerm + secondTerm)
+	return result
+
+def del_H(w):
+	result = 1j * w * gilDamping / gamma
 	return result
 
 def Q2(w):
@@ -256,15 +254,15 @@ def Q4(w):
 	return result
 
 def QQ(w):
-	first = abs(cmath.sqrt(Q2(w)))
-	second = abs(cmath.sqrt(Q4(w)))
-	third = abs(cmath.sqrt(complex(0, w * sigmaFM * muZero)))
+	first = abs(numpy.sqrt(Q2(w)))
+	second = abs(numpy.sqrt(Q4(w)))
+	third = abs(numpy.sqrt(complex(0, w * sigmaFM * muZero)))
 	result = max(first, second, third)
 	return result
 
 def S0h(K2, k):
-	numerator = complex(0, -1 * k * (K2 * cmath.cosh(K2*thicknessRu) + abs(k) * cmath.sinh(K2*thicknessRu)))
-	denominator = K2 * (K2 * cmath.sinh(K2 * thicknessRu) + cmath.cosh(K2 * thicknessRu) * abs(k))
+	numerator = complex(0, -1 * k * (K2 * numpy.cosh(K2*thicknessRu) + abs(k) * numpy.sinh(K2*thicknessRu)))
+	denominator = K2 * (K2 * numpy.sinh(K2 * thicknessRu) + numpy.cosh(K2 * thicknessRu) * abs(k))
 	if isinstance(K2 * thicknessRu, complex):
 		if (K2 * thicknessRu).real < 600:
 			return numerator / denominator
@@ -278,16 +276,16 @@ def S0h(K2, k):
 
 def SLj(K4, k, w):
 	if k < 20 * QQ(w):
-		numerator = complex(0, k * cmath.exp(-thicknessSi * abs(k)))
-		denominator = K4 * cmath.sinh(K4 * thicknessPt) + cmath.cosh(K4 * thicknessPt) * abs(k)
+		numerator = complex(0, k * numpy.exp(-thicknessSi * abs(k)))
+		denominator = K4 * numpy.sinh(K4 * thicknessPt) + numpy.cosh(K4 * thicknessPt) * abs(k)
 		return numerator / denominator
 	else:
-		result = complex(numpy.sign(k) * math.exp(-1 * (thicknessSi+thicknessPt) * abs(k)))
+		result = complex(numpy.sign(k) * numpy.exp(-1 * (thicknessSi+thicknessPt) * abs(k)))
 		return result
 
 def SLh(K4, k):
-	numerator = complex(0, k * (K4 * cmath.cosh(K4 * thicknessPt) + cmath.sinh(K4 * thicknessPt) * abs(k)))
-	denominator = K4 * (K4 * cmath.sinh(K4 * thicknessPt) + cmath.cosh(K4 * thicknessPt) * abs(k))
+	numerator = complex(0, k * (K4 * numpy.cosh(K4 * thicknessPt) + numpy.sinh(K4 * thicknessPt) * abs(k)))
+	denominator = K4 * (K4 * numpy.sinh(K4 * thicknessPt) + numpy.cosh(K4 * thicknessPt) * abs(k))
 	if isinstance(K4 * thicknessPt, complex):
 		if (K4 * thicknessPt).real < 600:
 			return numerator / denominator
@@ -490,7 +488,7 @@ def create_DD_var(a, b, c, d):
 	term[6] = -1 * d / (2 * a)
 	term[7] = b * c / (6 * a ** 2)
 
-	root = cmath.sqrt(term[0:5].sum())
+	root = numpy.sqrt(term[0:5].sum())
 	nonroot = term[5:].sum()
 	result = (root + nonroot) ** (1/3)
 	return result
@@ -501,7 +499,7 @@ def create_Q1_var(a, b, c, DD):
 	term[1] = (-1 * b ** 2) / (9 * a ** 2)
 	term[2] = -1 * b / (3 * a)
 	rootterm = DD - ((term[0] + term[1]) / DD) + term[2]
-	result = cmath.sqrt(rootterm)
+	result = numpy.sqrt(rootterm)
 	return result
 
 def create_Q2_var(a, b, c, DD):
@@ -510,8 +508,8 @@ def create_Q2_var(a, b, c, DD):
 	term[1] = -1 * b ** 2 / (9 * a ** 2)
 	term[2] = -1 * b / (3 * a)
 	realTerm = (term[0] + term[1]) / (2 * DD) + term[2] - DD / 2
-	imagTerm = -1j * (math.sqrt(3) * ((term[0] + term[1]) / DD + DD)) / 2
-	result = cmath.sqrt(realTerm + imagTerm)
+	imagTerm = -1j * (numpy.sqrt(3) * ((term[0] + term[1]) / DD + DD)) / 2
+	result = numpy.sqrt(realTerm + imagTerm)
 	return result
 
 def create_Q3_var(a, b, c, DD):
@@ -523,8 +521,8 @@ def create_Q3_var(a, b, c, DD):
 	term[4] = ((1 / 3) / a) * c
 	term[5] = -1 * ((1 / 9) / a ** 2) * b ** 2
 	realTerm = (term[0] + term[1]) / (2 * DD) + term[2] + term[3]
-	imagTerm = (1 / 2) * math.sqrt(3) * ((term[4] + term[5]) / DD + DD) * 1j
-	result = cmath.sqrt(realTerm + imagTerm)
+	imagTerm = (1 / 2) * numpy.sqrt(3) * ((term[4] + term[5]) / DD + DD) * 1j
+	result = numpy.sqrt(realTerm + imagTerm)
 	return result
 
 def create_Cmy_vec(Q1, Q2, Q3, k, wH, w):
@@ -555,36 +553,36 @@ def create_A_matrix(Q1, Q2, Q3, k, Cmy_vec, Chx_vec, SS0h, SSLh, Rm, Rh):
 	temp_A[0,3] = -Q1 - pinning_d1x + bulk_DD1 * k * Cmy_vec[3]
 	temp_A[0,4] = -Q2 - pinning_d1x + bulk_DD1 * k * Cmy_vec[4]
 	temp_A[0,5] = -Q3 - pinning_d1x + bulk_DD1 * k * Cmy_vec[5]
-	temp_A[1,0] = (Q1 + pinning_d2x - bulk_DD2 * k * Cmy_vec[0]) * cmath.exp(Q1 * thicknessFM)
-	temp_A[1,1] = (Q2 + pinning_d2x - bulk_DD2 * k * Cmy_vec[1]) * cmath.exp(Q2 * thicknessFM)
-	temp_A[1,2] = (Q3 + pinning_d2x - bulk_DD2 * k * Cmy_vec[2]) * cmath.exp(Q3 * thicknessFM)
-	temp_A[1,3] = (-Q1 + pinning_d2x - bulk_DD2 * k * Cmy_vec[3]) * cmath.exp(-Q1 * thicknessFM)
-	temp_A[1,4] = (-Q2 + pinning_d2x - bulk_DD2 * k * Cmy_vec[4]) * cmath.exp(-Q2 * thicknessFM)
-	temp_A[1,5] = (-Q3 + pinning_d2x - bulk_DD2 * k * Cmy_vec[5]) * cmath.exp(-Q3 * thicknessFM)
+	temp_A[1,0] = (Q1 + pinning_d2x - bulk_DD2 * k * Cmy_vec[0]) * numpy.exp(Q1 * thicknessFM)
+	temp_A[1,1] = (Q2 + pinning_d2x - bulk_DD2 * k * Cmy_vec[1]) * numpy.exp(Q2 * thicknessFM)
+	temp_A[1,2] = (Q3 + pinning_d2x - bulk_DD2 * k * Cmy_vec[2]) * numpy.exp(Q3 * thicknessFM)
+	temp_A[1,3] = (-Q1 + pinning_d2x - bulk_DD2 * k * Cmy_vec[3]) * numpy.exp(-Q1 * thicknessFM)
+	temp_A[1,4] = (-Q2 + pinning_d2x - bulk_DD2 * k * Cmy_vec[4]) * numpy.exp(-Q2 * thicknessFM)
+	temp_A[1,5] = (-Q3 + pinning_d2x - bulk_DD2 * k * Cmy_vec[5]) * numpy.exp(-Q3 * thicknessFM)
 	temp_A[2,0] = Cmy_vec[0] * (Q1 - pinning_d1y) - bulk_DD1 * k
 	temp_A[2,1] = Cmy_vec[1] * (Q2 - pinning_d1y) - bulk_DD1 * k
 	temp_A[2,2] = Cmy_vec[2] * (Q3 - pinning_d1y) - bulk_DD1 * k
 	temp_A[2,3] = Cmy_vec[3] * (-Q1 - pinning_d1y) - bulk_DD1 * k
 	temp_A[2,4] = Cmy_vec[4] * (-Q2 - pinning_d1y) - bulk_DD1 * k
 	temp_A[2,5] = Cmy_vec[5] * (-Q3 - pinning_d1y) - bulk_DD1 * k
-	temp_A[3,0] = (Cmy_vec[0] * (Q1 + pinning_d2y) + bulk_DD2 * k) * cmath.exp(Q1 * thicknessFM)
-	temp_A[3,1] = (Cmy_vec[1] * (Q2 + pinning_d2y) + bulk_DD2 * k) * cmath.exp(Q2 * thicknessFM)
-	temp_A[3,2] = (Cmy_vec[2] * (Q3 + pinning_d2y) + bulk_DD2 * k) * cmath.exp(Q3 * thicknessFM)
-	temp_A[3,3] = (Cmy_vec[3] * (-Q1 + pinning_d2y) + bulk_DD2 * k) * cmath.exp(-Q1 * thicknessFM)
-	temp_A[3,4] = (Cmy_vec[4] * (-Q2 + pinning_d2y) + bulk_DD2 * k) * cmath.exp(-Q2 * thicknessFM)
-	temp_A[3,5] = (Cmy_vec[5] * (-Q3 + pinning_d2y) + bulk_DD2 * k) * cmath.exp(-Q3 * thicknessFM)
+	temp_A[3,0] = (Cmy_vec[0] * (Q1 + pinning_d2y) + bulk_DD2 * k) * numpy.exp(Q1 * thicknessFM)
+	temp_A[3,1] = (Cmy_vec[1] * (Q2 + pinning_d2y) + bulk_DD2 * k) * numpy.exp(Q2 * thicknessFM)
+	temp_A[3,2] = (Cmy_vec[2] * (Q3 + pinning_d2y) + bulk_DD2 * k) * numpy.exp(Q3 * thicknessFM)
+	temp_A[3,3] = (Cmy_vec[3] * (-Q1 + pinning_d2y) + bulk_DD2 * k) * numpy.exp(-Q1 * thicknessFM)
+	temp_A[3,4] = (Cmy_vec[4] * (-Q2 + pinning_d2y) + bulk_DD2 * k) * numpy.exp(-Q2 * thicknessFM)
+	temp_A[3,5] = (Cmy_vec[5] * (-Q3 + pinning_d2y) + bulk_DD2 * k) * numpy.exp(-Q3 * thicknessFM)
 	temp_A[4,0] = Cmy_vec[0] * Rm + Chx_vec[0] * (SS0h + Rh * Q1)
 	temp_A[4,1] = Cmy_vec[1] * Rm + Chx_vec[1] * (SS0h + Rh * Q2)
 	temp_A[4,2] = Cmy_vec[2] * Rm + Chx_vec[2] * (SS0h + Rh * Q3)
 	temp_A[4,3] = Cmy_vec[3] * Rm + Chx_vec[3] * (SS0h + Rh * (-Q1))
 	temp_A[4,4] = Cmy_vec[4] * Rm + Chx_vec[4] * (SS0h + Rh * (-Q2))
 	temp_A[4,5] = Cmy_vec[5] * Rm + Chx_vec[5] * (SS0h + Rh * (-Q3))
-	temp_A[5,0] = (Cmy_vec[0] * Rm + Chx_vec[0] * (SSLh + Rh * Q1)) * cmath.exp(Q1 * thicknessFM)
-	temp_A[5,1] = (Cmy_vec[1] * Rm + Chx_vec[1] * (SSLh + Rh * Q2)) * cmath.exp(Q2 * thicknessFM)
-	temp_A[5,2] = (Cmy_vec[2] * Rm + Chx_vec[2] * (SSLh + Rh * Q3)) * cmath.exp(Q3 * thicknessFM)
-	temp_A[5,3] = (Cmy_vec[3] * Rm + Chx_vec[3] * (SSLh + Rh * (-Q1))) * cmath.exp(-Q1 * thicknessFM)
-	temp_A[5,4] = (Cmy_vec[4] * Rm + Chx_vec[4] * (SSLh + Rh * (-Q2))) * cmath.exp(-Q2 * thicknessFM)
-	temp_A[5,5] = (Cmy_vec[5] * Rm + Chx_vec[5] * (SSLh + Rh * (-Q3))) * cmath.exp(-Q3 * thicknessFM)
+	temp_A[5,0] = (Cmy_vec[0] * Rm + Chx_vec[0] * (SSLh + Rh * Q1)) * numpy.exp(Q1 * thicknessFM)
+	temp_A[5,1] = (Cmy_vec[1] * Rm + Chx_vec[1] * (SSLh + Rh * Q2)) * numpy.exp(Q2 * thicknessFM)
+	temp_A[5,2] = (Cmy_vec[2] * Rm + Chx_vec[2] * (SSLh + Rh * Q3)) * numpy.exp(Q3 * thicknessFM)
+	temp_A[5,3] = (Cmy_vec[3] * Rm + Chx_vec[3] * (SSLh + Rh * (-Q1))) * numpy.exp(-Q1 * thicknessFM)
+	temp_A[5,4] = (Cmy_vec[4] * Rm + Chx_vec[4] * (SSLh + Rh * (-Q2))) * numpy.exp(-Q2 * thicknessFM)
+	temp_A[5,5] = (Cmy_vec[5] * Rm + Chx_vec[5] * (SSLh + Rh * (-Q3))) * numpy.exp(-Q3 * thicknessFM)
 
 	return temp_A
 
@@ -623,25 +621,25 @@ def create_M_vec(A, B, DD, Det):
 
 def create_hxk_var(Chx_vec, M_vec, Q1, Q2, Q3):
 	term = numpy.zeros(6, dtype = complex)
-	term[0] = Chx_vec[0] * M_vec[0] * cmath.exp(Q1 * thicknessFM)
-	term[1] = Chx_vec[1] * M_vec[1] * cmath.exp(Q2 * thicknessFM)
-	term[2] = Chx_vec[2] * M_vec[2] * cmath.exp(Q3 * thicknessFM)
-	term[3] = Chx_vec[3] * M_vec[3] * cmath.exp(-Q1 * thicknessFM)
-	term[4] = Chx_vec[4] * M_vec[4] * cmath.exp(-Q2 * thicknessFM)
-	term[5] = Chx_vec[5] * M_vec[5] * cmath.exp(-Q3 * thicknessFM)
+	term[0] = Chx_vec[0] * M_vec[0] * numpy.exp(Q1 * thicknessFM)
+	term[1] = Chx_vec[1] * M_vec[1] * numpy.exp(Q2 * thicknessFM)
+	term[2] = Chx_vec[2] * M_vec[2] * numpy.exp(Q3 * thicknessFM)
+	term[3] = Chx_vec[3] * M_vec[3] * numpy.exp(-Q1 * thicknessFM)
+	term[4] = Chx_vec[4] * M_vec[4] * numpy.exp(-Q2 * thicknessFM)
+	term[5] = Chx_vec[5] * M_vec[5] * numpy.exp(-Q3 * thicknessFM)
 	result = term.sum()
 	return result
 
 def create_hyl_var(k, K4, hxk):
-	numerator = -1 * numpy.sign(k) * 1j * k ** 2 * hxk * cmath.exp(-1 * abs(k) * thicknessFM)
-	denominator = k ** 2 * cmath.cosh(K4 * thicknessPt) + K4 * cmath.sinh(K4 * thicknessPt) * abs(k)
+	numerator = -1 * numpy.sign(k) * 1j * k ** 2 * hxk * numpy.exp(-1 * abs(k) * thicknessFM)
+	denominator = k ** 2 * numpy.cosh(K4 * thicknessPt) + K4 * numpy.sinh(K4 * thicknessPt) * abs(k)
 	result = numerator / denominator
 	return result
 
 def MM(k, wH, w):
-	var_K2 = cmath.sqrt(Q2(w) + k ** 2)
-	var_K4 = cmath.sqrt(Q4(w) + k ** 2)
-	Rm = (k ** 4 - w * sigmaFM * k ** 2 * muZero *1j) / (w ** 2 * sigmaFM ** 2 * muZero ** 2 + k ** 4)
+	var_K2 = numpy.sqrt(Q2(w) + k ** 2)
+	var_K4 = numpy.sqrt(Q4(w) + k ** 2)
+	Rm = (k ** 4 - w * sigmaFM * k ** 2 * muZero * 1j) / (w ** 2 * sigmaFM ** 2 * muZero ** 2 + k ** 4)
 	SS0h = S0h(var_K2, k)
 	SSLh = SLh(var_K4, k)
 	Rh = (w * sigmaFM * k * muZero + k ** 3 * 1j) / (w ** 2 * sigmaFM ** 2 * muZero ** 2 + k ** 4)
@@ -668,15 +666,15 @@ def MM(k, wH, w):
 	return result_ek
 
 def create_Gind_integral(z, w, k):
-	arg_One = cmath.sqrt(Q4(w) + k ** 2)
+	arg_One = numpy.sqrt(Q4(w) + k ** 2)
 	arg_Two = thicknessSi * abs(k)
 	num = numpy.zeros(2, dtype = complex)
-	num[0] = k ** 2 * cmath.cosh(arg_One * thicknessPt) * cmath.cosh(arg_Two)
-	num[1] = arg_One * cmath.sinh(arg_One * thicknessPt) * cmath.sinh(arg_Two) * abs(k)
-	numerator = -1j * num.sum() * cmath.exp(-abs(k) * thicknessSi) * cmath.cos(k * z)
+	num[0] = k ** 2 * numpy.cosh(arg_One * thicknessPt) * numpy.cosh(arg_Two)
+	num[1] = arg_One * numpy.sinh(arg_One * thicknessPt) * numpy.sinh(arg_Two) * abs(k)
+	numerator = -1j * num.sum() * numpy.exp(-abs(k) * thicknessSi) * numpy.cos(k * z)
 	denom = numpy.zeros(2, dtype = complex)
-	denom[0] = k ** 2 * cmath.cosh(arg_One * thicknessPt)
-	denom[1] = arg_One * cmath.sinh(arg_One * thicknessPt) * abs(k)
+	denom[0] = k ** 2 * numpy.cosh(arg_One * thicknessPt)
+	denom[1] = arg_One * numpy.sinh(arg_One * thicknessPt) * abs(k)
 	denominator = abs(k) * denom.sum()
 	result = numerator / denominator
 	return result
@@ -684,32 +682,159 @@ def create_Gind_integral(z, w, k):
 def Gind(z, w):
 	upper_Bound = 20 * QQ(w)
 	lower_Bound = 0
-	integral = complex_quadrature(lambda x : create_Gind_integral(z, w, x), lower_Bound, upper_Bound, limit = 500)[0]
-	first_Term = 2 * (-w * muZero) / (2 * cmath.pi) * integral
+	midOne_Bound = 0.001
+	midTwo_Bound = 1
+	integral_FirstBound = complex_quadrature(lambda x : create_Gind_integral(z, w, x), lower_Bound, midOne_Bound, limit = 1000)[0]
+	integral_SecondBound = complex_quadrature(lambda x : create_Gind_integral(z, w, x), midOne_Bound, midTwo_Bound, limit = 1000)[0]
+	integral_ThirdBound = complex_quadrature(lambda x : create_Gind_integral(z, w, x), midTwo_Bound, upper_Bound, limit = 1000)[0]
+	integral = integral_FirstBound + integral_SecondBound + integral_ThirdBound
+	first_Term = 2 * (-w * muZero) / (2 * numpy.pi) * integral
 	argument_One = 2 * (thicknessSi + thicknessPt) * 20 * QQ(w) - 20 * QQ(w) * z * 1j
 	argument_Two = 2 * (thicknessSi + thicknessPt) * 20 * QQ(w) + 20 * QQ(w) * z * 1j
-	second_Term = 2 * (-w * muZero * -1j) / (2 * cmath.pi) * ((Ei(argument_One) + Ei(argument_Two)) / 2 - Ci(z * 20 * QQ(w)))
+	second_Term = 2 * (-w * muZero * -1j) / (2 * numpy.pi) * ((Ei(argument_One) + Ei(argument_Two)) / 2 - Ci(z * 20 * QQ(w)))
 	result = first_Term + second_Term
 	return result
 
-def create_eG_integral(k, wH, w, z):
-	first_Term = MM(k, wH, w) * cmath.exp(-1j * k * z)
-	second_Term = MM(-k, wH, w) * cmath.exp(1j * k * z)
+def create_eG_integral(k, H, z, w):
+	first_Term = MM(k, H * gamma, w) * numpy.exp(-1j * k * z)
+	second_Term = MM(-k, H * gamma, w) * numpy.exp(1j * k * z)
 	result = first_Term + second_Term
 	return result
 
 def eG(H, z, w):
-	upper_Bound = 100 * math.pi / w
+	upper_Bound = 100 * numpy.pi / (wsignal)
 	lower_Bound = 1
-	integral = complex_quadrature(lambda x : create_eG_integral(x, gamma * H, w, z), lower_Bound, upper_Bound)[0]
-	first_Term = 1 / (2 * math.pi) * integral
+	integral = complex_quadrature(lambda x : create_eG_integral(x, H, z, w), lower_Bound, upper_Bound, limit = 1000)[0]
+	first_Term = 1 / (2 * numpy.pi) * integral
 	second_Term = Gind(z, w)
 	result = first_Term + second_Term
 	return result
 
+def create_xj_vec():
+	xj = numpy.zeros(pts_total)
+	for i in range(pts_total):
+		if i <= pts_ground - 1:
+			xj[i] = i * del_width
+		elif (i >= pts_ground and i <= pts_ground + pts_signal - 1):
+			xj[i] = wgap + i * del_width
+		else:
+			xj[i] = 2 * wgap + i * del_width
+	return xj
+
+def create_xi_vec():
+	xi = numpy.zeros(pts_total)
+	for i in range(pts_total):
+		if i <= pts_ground - 1:
+			xi[i] = i * del_width + distance_Antennas
+		elif (i >= pts_ground and i <= pts_ground + pts_signal -1):
+			xi[i] = wgap + i * del_width + distance_Antennas
+		else:
+			xi[i] = 2 * wgap + i * del_width + distance_Antennas
+	return xi
+
+def create_JJI_B_vec(num_signal, num_ground, num_tot):
+	B = numpy.zeros(num_tot)
+	for i in range(num_ground):
+		B[i] = 0
+		B[i+num_signal+num_ground] = 0
+	for i in range(num_signal):
+		B[i+num_ground] = 1
+	return B
+
+def create_JJI_G_vecs(H, z, w, num_max):
+	G = numpy.zeros((6,2 * num_max), dtype = complex) 
+	for i in range(num_max):
+		G[0,i] = eG(H, i * z, w)
+		G[1,i] = eG(H, -i * z, w)
+
+	for i in range(2 * num_max):
+		G[2,i] = eG(H, i * z + wgap, w)
+		G[3,i] = eG(H, -(i * z + wgap), w)
+
+	for i in range(2 * num_max):
+		G[4,i] = eG(H, i * z + 2 * wgap + wsignal, w)
+		G[5,i] = eG(H, -(i * z + 2 * wgap + wsignal), w)
+
+	return G
+
+def create_JJI_A_matrix(num_signal, num_ground, num_tot, G_vecs):
+	G33_pos = G_vecs[0]
+	G33_neg = G_vecs[1]
+	G32_pos = G_vecs[2]
+	G32_neg = G_vecs[3]
+	G31_pos = G_vecs[4]
+	G31_neg = G_vecs[5]
+	A = numpy.ones((num_tot, num_tot), dtype = complex)
+	for i in range(num_signal):
+		for j in range(num_signal):
+			if i - j >= 0:
+				A[i+num_ground, j+num_ground] = G33_pos[i-j] * del_width
+			else:
+				A[i+num_ground, j+num_ground] = G33_neg[abs(i-j)] * del_width
+
+	for i in range(num_signal):
+		for j in range(num_ground):
+			A[i+num_ground, j] = G32_pos[i+num_ground-1-j] * del_width
+			A[i+num_ground, j+num_signal+num_ground] = G32_neg[abs(num_signal-1-i+j)] * del_width
+
+	for i in range(num_ground):
+		for j in range(num_ground):
+			if i - j >= 0:
+				A[i+num_ground+num_signal, j+num_ground+num_signal] = G33_pos[i-j] * del_width
+				A[i, j] = G33_pos[i-j] * del_width
+			else:
+				A[i+num_ground+num_signal, j+num_ground+num_signal] = G33_neg[abs(i-j)] * del_width
+				A[i, j] = G33_neg[abs(i-j)] * del_width
+
+			A[i, j+num_ground+num_signal] = G31_neg[abs(num_ground-1-i+j)] * del_width
+			A[i+num_ground+num_signal, j] = G31_pos[i+num_ground-1-j] * del_width
+
+	for i in range(num_ground):
+		for j in range(num_signal):
+			A[i, j+num_ground] = G32_neg[abs(num_ground-1-i+j)] * del_width
+			A[i+num_ground+num_signal, j+num_ground] = G32_pos[i+num_signal-1-j] * del_width
+
+	return A
+		
+
+def JJI(H, w):
+	var_time = time.time()
+	var_delH = del_H(w)
+	print("Time: del_H(w) = ", time.time() - var_time)
+
+	var_time = time.time()
+	vec_JJI_B = create_JJI_B_vec(pts_signal, pts_ground, pts_total)
+	print("Time: create_JJI_B_vec = ", time.time() - var_time)
+
+	var_time = time.time()
+	vecs_JJI_G = create_JJI_G_vecs(H + var_delH, del_width, w, pts_max)
+	print("Time: create_JJI_G_vecs = ", time.time() - var_time)
+	
+	var_time = time.time()
+	matrix_JJI_A = create_JJI_A_matrix(pts_signal, pts_ground, pts_total, vecs_JJI_G)
+	print("Time: create_JJI_A_matrix = ", time.time() - var_time)
+
+	var_ww1 = numpy.linalg.solve(matrix_JJI_A, vec_JJI_B)
+	return matrix_JJI_A
+
+
+
 def main():
+	print("Start: antennaCalcs()")
+	var_time = time.time()
 	Ycss = antennaCalcs()
-	MM(1,1,1)
+	print("Time: antennaCalcs() = ", time.time() - var_time)
+
+	print("Start: MM(1,1,1)")
+	var_time = time.time()
+	#MM(1,1,1)
+	print("Time: MM(1,1,1) = ", time.time() - var_time)
+
+	print("Start: JJI(1,1)")
+	var_time = time.time()
+	#print(JJI(1,1))
+	print("Time: JJI(1,1) = ", time.time() - var_time)
+	return 0
 
 
 if __name__ == '__main__':
