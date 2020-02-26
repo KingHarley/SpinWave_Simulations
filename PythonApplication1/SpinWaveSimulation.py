@@ -127,7 +127,7 @@ def Ei(x):
 	return ei
 
 def Ci(x):
-	result = -1 * (Ei(complex(0, x)) + Ei(complex(0, -1*x))) / 2
+	result = -1 * (Ei(x * 1j) + Ei(-1j * x)) / 2
 	return result
 
 def Gsi(k):
@@ -221,18 +221,17 @@ def antennaCalcs():
 	kkls = numpy.sqrt(1 - kkl ** 2)
 	epsEff = epsilonEff(kk, kks, kkl, kkls)
 	z0 = Z0(kk, kks, kkl, kkls)
-	gammafs = complex(0, centralFreq * numpy.sqrt(epsZero * epsEff * muZero))
+	gammafs = centralFreq * numpy.sqrt(epsZero * epsEff * muZero) * 1j
 	numsignal = 520
 	numground = int(numpy.floor(numsignal / 2))
 	meshpts = numsignal + 2 * numground
 	nummax = max(numsignal, numground)
 	deltaW = (wsignal + 2 * wground) / meshpts
 	Qpresult = Qp(numsignal, numground, meshpts, nummax, deltaW)
-	Ycss = complex(0, Qpresult[0])
+	Ycss = Qpresult[0] * 1j
 	Q1 = (Qpresult[2:numground+2].sum() + Qpresult[numground+numsignal+2:meshpts+2].sum()) * deltaW
 	Q2 = (deltaW*Qpresult[numground+2:numground+numsignal+2]).sum()
-	linearCapacitance = Ycss * centralFreq
-	return linearCapacitance
+	return Ycss
 	
 
 def ww(k, H):
@@ -246,56 +245,44 @@ def del_H(w):
 	return result
 
 def Q2(w):
-	result = complex(0, w * sigmaRu * muZero)
+	result = w * sigmaRu * muZero * 1j
 	return result
 
 def Q4(w):
-	result = complex(0, w * sigmaPt * muZero)
+	result = w * sigmaPt * muZero * 1j
 	return result
 
 def QQ(w):
 	first = abs(numpy.sqrt(Q2(w)))
 	second = abs(numpy.sqrt(Q4(w)))
-	third = abs(numpy.sqrt(complex(0, w * sigmaFM * muZero)))
+	third = abs(numpy.sqrt(w * sigmaFM * muZero * 1j))
 	result = max(first, second, third)
 	return result
 
 def S0h(K2, k):
-	numerator = complex(0, -1 * k * (K2 * numpy.cosh(K2*thicknessRu) + abs(k) * numpy.sinh(K2*thicknessRu)))
+	numerator = -1j * k * (K2 * numpy.cosh(K2*thicknessRu) + abs(k) * numpy.sinh(K2*thicknessRu))
 	denominator = K2 * (K2 * numpy.sinh(K2 * thicknessRu) + numpy.cosh(K2 * thicknessRu) * abs(k))
-	if isinstance(K2 * thicknessRu, complex):
-		if (K2 * thicknessRu).real < 600:
-			return numerator / denominator
-		else:
-			return complex(0, -k) / K2
+	if complex(K2 * thicknessRu).real < 600:
+		return numerator / denominator
 	else:
-		if (K2 * thicknessRu) < 600:
-			return numerator / denominator
-		else:
-			return complex(0, -k) / K2
+		return -k * 1j / K2
 
 def SLj(K4, k, w):
 	if k < 20 * QQ(w):
-		numerator = complex(0, k * numpy.exp(-thicknessSi * abs(k)))
+		numerator = k * 1j * numpy.exp(-thicknessSi * abs(k))
 		denominator = K4 * numpy.sinh(K4 * thicknessPt) + numpy.cosh(K4 * thicknessPt) * abs(k)
 		return numerator / denominator
 	else:
-		result = complex(numpy.sign(k) * numpy.exp(-1 * (thicknessSi+thicknessPt) * abs(k)))
+		result = numpy.sign(k) * numpy.exp(-1 * (thicknessSi+thicknessPt) * abs(k)) * 1j
 		return result
-
+	
 def SLh(K4, k):
-	numerator = complex(0, k * (K4 * numpy.cosh(K4 * thicknessPt) + numpy.sinh(K4 * thicknessPt) * abs(k)))
+	numerator = k * 1j * (K4 * numpy.cosh(K4 * thicknessPt) + numpy.sinh(K4 * thicknessPt) * abs(k))
 	denominator = K4 * (K4 * numpy.sinh(K4 * thicknessPt) + numpy.cosh(K4 * thicknessPt) * abs(k))
-	if isinstance(K4 * thicknessPt, complex):
-		if (K4 * thicknessPt).real < 600:
-			return numerator / denominator
-		else:
-			return complex(0, k / K4)
+	if complex(K4 * thicknessPt).real < 600:
+		return numerator / denominator
 	else:
-		if K4 * thicknessPt < 600:
-			return numerator / denominator
-		else:
-			return complex(0, k / K4)
+		return  k * 1j / K4
 
 def Cmy(Q, k, wH, w):
 	numerator = -1 * (omegaM * Q * k - w * Q ** 2 + w * k ** 2 + w ** 2 * sigmaFM * muZero * 1j)
@@ -495,11 +482,10 @@ def create_DD_var(a, b, c, d):
 
 def create_Q1_var(a, b, c, DD):
 	term = numpy.zeros(3, dtype = complex)
-	term[0] = c / (3 * a)
-	term[1] = (-1 * b ** 2) / (9 * a ** 2)
-	term[2] = -1 * b / (3 * a)
-	rootterm = DD - ((term[0] + term[1]) / DD) + term[2]
-	result = numpy.sqrt(rootterm)
+	term[0] = DD
+	term[1] = (c / (3*a) - b ** 2 / (9 * a ** 2)) / DD
+	term[2] = b/ (3 * a)
+	result = numpy.sqrt(term[0] - term[1] - term[2])
 	return result
 
 def create_Q2_var(a, b, c, DD):
@@ -732,13 +718,19 @@ def create_xi_vec():
 			xi[i] = 2 * wgap + i * del_width + distance_Antennas
 	return xi
 
-def create_JJI_B_vec(num_signal, num_ground, num_tot):
-	B = numpy.zeros(num_tot)
+def create_JJI_B_vecs(num_signal, num_ground, num_tot):
+	B = numpy.zeros((3, num_tot), dtype = complex)
 	for i in range(num_ground):
-		B[i] = 0
-		B[i+num_signal+num_ground] = 0
+		B[0,i] = 0
+		B[0, i+num_signal+num_ground] = 0
+		B[1, i] = 1
+		B[1, i+num_signal+num_ground] = 0
+		B[2, i] = 0
+		B[2, i+num_signal+num_ground] = 1
 	for i in range(num_signal):
-		B[i+num_ground] = 1
+		B[0, i+num_ground] = 1
+		B[1, i+num_ground] = 0
+		B[2, i+num_ground] = 0
 	return B
 
 def create_JJI_G_vecs(H, z, w, num_max):
@@ -795,16 +787,44 @@ def create_JJI_A_matrix(num_signal, num_ground, num_tot, G_vecs):
 			A[i+num_ground+num_signal, j+num_ground] = G32_pos[i+num_signal-1-j] * del_width
 
 	return A
-		
 
-def JJI(H, w):
+def create_JJI_ww_vecs(A, B):
+	ww = numpy.zeros((3, len(A)), dtype = complex)
+	for i in range(3):
+		ww[i] = numpy.linalg.solve(A, B[i])
+	return ww
+
+def create_JJI_I_matrix(ww_vecs, num_signal, num_ground, num_total):
+	I = numpy.zeros((3,3), dtype = complex)
+	for i in range(3):
+		I[i,0] = ww_vecs[i, num_ground : num_ground + num_signal].sum()
+		I[i,1] = ww_vecs[i, 0 : num_ground].sum()
+		I[i,2] = ww_vecs[i, num_ground + num_signal : num_total].sum()
+	return I
+
+def create_JJI_AL_matrix(Y11, matrix_Z):
+	AL = numpy.zeros((5,5), dtype = complex)
+	AL[3,0] = -(var_R1 + matrix_Z[0,0] - matrix_Z[1,0])
+	AL[4,0] = -(var_R1 + matrix_Z[0,0] - matrix_Z[2,0])
+	AL[3,1] = var_R2 - matrix_Z[0,1] + matrix_Z[1,1]
+	AL[4,1] = -(matrix_Z[0,1] - matrix_Z[2,1])
+	AL[3,2] = matrix_Z[1,2] - matrix_Z[0,2]
+	AL[4,2] = var_R2 - matrix_Z[0,2] + matrix_Z[2,2]
+	AL[0,3] = -Y11
+	AL[0,1] = -Y11
+	AL[0,4] = -Y11
+	AL[2,4] = -Y11
+
+	return AL
+
+def JJI(H, w, Ycss):
 	var_time = time.time()
 	var_delH = del_H(w)
 	print("Time: del_H(w) = ", time.time() - var_time)
 
 	var_time = time.time()
-	vec_JJI_B = create_JJI_B_vec(pts_signal, pts_ground, pts_total)
-	print("Time: create_JJI_B_vec = ", time.time() - var_time)
+	vecs_JJI_B = create_JJI_B_vecs(pts_signal, pts_ground, pts_total)
+	print("Time: create_JJI_B_vecs = ", time.time() - var_time)
 
 	var_time = time.time()
 	vecs_JJI_G = create_JJI_G_vecs(H + var_delH, del_width, w, pts_max)
@@ -814,15 +834,32 @@ def JJI(H, w):
 	matrix_JJI_A = create_JJI_A_matrix(pts_signal, pts_ground, pts_total, vecs_JJI_G)
 	print("Time: create_JJI_A_matrix = ", time.time() - var_time)
 
-	var_ww1 = numpy.linalg.solve(matrix_JJI_A, vec_JJI_B)
-	return matrix_JJI_A
+	var_time = time.time()
+	vecs_JJI_ww = create_JJI_ww_vecs(matrix_JJI_A, vecs_JJI_B)
+	print("Time: create_JJI_ww_vecs = ", time.time() - var_time)
 
+	var_time = time.time()
+	matrix_JJI_I = create_JJI_I_matrix(vecs_JJI_ww, pts_signal, pts_ground, pts_total)
+	print("Time: create_JJI_I_matrix = ", time.time() - var_time)
 
+	return matrix_JJI_I
+
+	matrix_ZZ = numpy.linalg.inv(numpy.transpose(matrix_JJI_I)) / del_width
+	var_Y11 = Ycss * w
+
+	var_time = time.time()
+	matrix_JJI_AL = create_JJI_AL_matrix(var_Y11, matrix_ZZ)
+	print("Time: create_JJI_AL_matrix = ", time.time() - var_time)
+
+	vec_eigAL = numpy.linalg.eig(AL)[0]
+	vec_eigVecAL = numpy.linalg.eig(AL)[1]
+
+	return matrix_JJI_AL
 
 def main():
 	print("Start: antennaCalcs()")
 	var_time = time.time()
-	Ycss = antennaCalcs()
+	#var_Ycss = antennaCalcs()
 	print("Time: antennaCalcs() = ", time.time() - var_time)
 
 	print("Start: MM(1,1,1)")
@@ -832,7 +869,7 @@ def main():
 
 	print("Start: JJI(1,1)")
 	var_time = time.time()
-	#print(JJI(1,1))
+	print(JJI(appliedH,centralFreq,1))
 	print("Time: JJI(1,1) = ", time.time() - var_time)
 	return 0
 
