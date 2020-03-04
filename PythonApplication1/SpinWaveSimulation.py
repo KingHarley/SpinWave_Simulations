@@ -1,8 +1,10 @@
 #All imports go here
 import time
+import cProfile
 import numpy
 import scipy
 from scipy import integrate
+from numba import jit
 
 #Defining some variables
 centralFreq = numpy.pi * (2 * 10 * 10 ** 9)
@@ -284,62 +286,110 @@ def SLh(K4, k):
 	else:
 		return  k * 1j / K4
 
+cmy_denom = numpy.zeros(10, dtype = complex)
+@jit(nopython=True)
 def Cmy(Q, k, wH, w):
 	numerator = -1 * (omegaM * Q * k - w * Q ** 2 + w * k ** 2 + w ** 2 * sigmaFM * muZero * 1j)
-	denom = numpy.zeros(10, dtype = complex)
-	denom[0] = w * sigmaFM * wH * muZero
-	denom[1] = -1 * Q ** 4 * alphaExchange * omegaM * 1j
-	denom[2] = w * sigmaFM * muZero * omegaM
-	denom[3] = -1 * Q ** 2 * alphaExchange * w * sigmaFM * muZero * omegaM
-	denom[4] = alphaExchange * w * sigmaFM * k ** 2 * muZero * omegaM
-	denom[5] = -1 * k ** 2 * wH * 1j
-	denom[6] = -1 * alphaExchange * k ** 4 * omegaM * 1j
-	denom[7] = 2 * Q ** 2 * alphaExchange * k ** 2 * omegaM * 1j
-	denom[8] = Q ** 2 * omegaM * 1j
-	denom[9] = Q ** 2 * wH * 1j
-	denominator = denom.sum()
+	#cmy_denom = numpy.zeros(10, dtype = complex)
+	#cmy_denom[0] = w * sigmaFM * wH * muZero
+	#cmy_denom[1] = -1 * Q ** 4 * alphaExchange * omegaM * 1j
+	#cmy_denom[2] = w * sigmaFM * muZero * omegaM
+	#cmy_denom[3] = -1 * Q ** 2 * alphaExchange * w * sigmaFM * muZero * omegaM
+	#cmy_denom[4] = alphaExchange * w * sigmaFM * k ** 2 * muZero * omegaM
+	#cmy_denom[5] = -1 * k ** 2 * wH * 1j
+	#cmy_denom[6] = -1 * alphaExchange * k ** 4 * omegaM * 1j
+	#cmy_denom[7] = 2 * Q ** 2 * alphaExchange * k ** 2 * omegaM * 1j
+	#cmy_denom[8] = Q ** 2 * omegaM * 1j
+	#cmy_denom[9] = Q ** 2 * wH * 1j
+
+	cmy_denom_0 = w * sigmaFM * wH * muZero
+	cmy_denom_1 = -1 * Q ** 4 * alphaExchange * omegaM * 1j
+	cmy_denom_2 = w * sigmaFM * muZero * omegaM
+	cmy_denom_3 = -1 * Q ** 2 * alphaExchange * w * sigmaFM * muZero * omegaM
+	cmy_denom_4 = alphaExchange * w * sigmaFM * k ** 2 * muZero * omegaM
+	cmy_denom_5 = -1 * k ** 2 * wH * 1j
+	cmy_denom_6 = -1 * alphaExchange * k ** 4 * omegaM * 1j
+	cmy_denom_7 = 2 * Q ** 2 * alphaExchange * k ** 2 * omegaM * 1j
+	cmy_denom_8 = Q ** 2 * omegaM * 1j
+	cmy_denom_9 = Q ** 2 * wH * 1j
+	denominator = cmy_denom_0 + cmy_denom_1 + cmy_denom_2 + cmy_denom_3 + cmy_denom_4 + cmy_denom_5 + cmy_denom_6 + cmy_denom_7 + cmy_denom_8 + cmy_denom_9
+	#denominator = cmy_denom.sum()
 	result = numerator / denominator
 	return result
 
+@jit(nopython = True)
 def Chx(Q, k, wH, w):
-	num = numpy.zeros(19, dtype = complex)
-	num[0] = Q ** 3 * w * k * 1j
-	num[1] = 2 * Q ** 2 * alphaExchange * k ** 4 * omegaM * 1j
-	num[2] = Q * w ** 2 * sigmaFM * k * muZero
-	num[3] = -1 * Q ** 2 * w * sigmaFM * wH * muZero
-	num[4] = -1 * Q ** 2 * w * sigmaFM * muZero * omegaM
-	num[5] = 2 * w * sigmaFM * k ** 2 * wH * muZero
-	num[6] = w * sigmaFM * k ** 2 * muZero * omegaM
-	num[7] = Q ** 4 * alphaExchange * w * sigmaFM * muZero * omegaM
-	num[8] = 2 * alphaExchange * w * sigmaFM * k ** 4 * muZero * omegaM
-	num[9] =  -3 * Q ** 2 * alphaExchange * w * sigmaFM * k ** 2 * muZero * omegaM
-	num[10] = -1 * Q * w * k ** 3 * 1j
-	num[11] = -1 * Q ** 2 * alphaExchange * w ** 2 * sigmaFM ** 2 * muZero ** 2 * omegaM * 1j
-	num[12] = -1 * alphaExchange * k ** 6 * omegaM * 1j
-	num[13] = -1 * k ** 4 * wH * 1j
-	num[14] = -1 * Q ** 4 * alphaExchange * k ** 2 * omegaM * 1j
-	num[15] = w ** 2 * sigmaFM ** 2 * wH * muZero ** 2 * 1j
-	num[16] = w ** 2 * sigmaFM ** 2 * muZero ** 2 * omegaM * 1j
-	num[17] = alphaExchange * w ** 2 * sigmaFM ** 2 * k ** 2 * muZero ** 2 * omegaM * 1j
-	num[18] = Q ** 2 * k ** 2 * wH * 1j
+	#num = numpy.zeros(19, dtype = complex)
+	#num[0] = Q ** 3 * w * k * 1j
+	#num[1] = 2 * Q ** 2 * alphaExchange * k ** 4 * omegaM * 1j
+	#num[2] = Q * w ** 2 * sigmaFM * k * muZero
+	#num[3] = -1 * Q ** 2 * w * sigmaFM * wH * muZero
+	#num[4] = -1 * Q ** 2 * w * sigmaFM * muZero * omegaM
+	#num[5] = 2 * w * sigmaFM * k ** 2 * wH * muZero
+	#num[6] = w * sigmaFM * k ** 2 * muZero * omegaM
+	#num[7] = Q ** 4 * alphaExchange * w * sigmaFM * muZero * omegaM
+	#num[8] = 2 * alphaExchange * w * sigmaFM * k ** 4 * muZero * omegaM
+	#num[9] =  -3 * Q ** 2 * alphaExchange * w * sigmaFM * k ** 2 * muZero * omegaM
+	#num[10] = -1 * Q * w * k ** 3 * 1j
+	#num[11] = -1 * Q ** 2 * alphaExchange * w ** 2 * sigmaFM ** 2 * muZero ** 2 * omegaM * 1j
+	#num[12] = -1 * alphaExchange * k ** 6 * omegaM * 1j
+	#num[13] = -1 * k ** 4 * wH * 1j
+	#num[14] = -1 * Q ** 4 * alphaExchange * k ** 2 * omegaM * 1j
+	#num[15] = w ** 2 * sigmaFM ** 2 * wH * muZero ** 2 * 1j
+	#num[16] = w ** 2 * sigmaFM ** 2 * muZero ** 2 * omegaM * 1j
+	#num[17] = alphaExchange * w ** 2 * sigmaFM ** 2 * k ** 2 * muZero ** 2 * omegaM * 1j
+	#num[18] = Q ** 2 * k ** 2 * wH * 1j
 
-	numerator = -1 * num.sum()
+	num_0 = Q ** 3 * w * k * 1j
+	num_1 = 2 * Q ** 2 * alphaExchange * k ** 4 * omegaM * 1j
+	num_2 = Q * w ** 2 * sigmaFM * k * muZero
+	num_3 = -1 * Q ** 2 * w * sigmaFM * wH * muZero
+	num_4 = -1 * Q ** 2 * w * sigmaFM * muZero * omegaM
+	num_5 = 2 * w * sigmaFM * k ** 2 * wH * muZero
+	num_6 = w * sigmaFM * k ** 2 * muZero * omegaM
+	num_7 = Q ** 4 * alphaExchange * w * sigmaFM * muZero * omegaM
+	num_8 = 2 * alphaExchange * w * sigmaFM * k ** 4 * muZero * omegaM
+	num_9 =  -3 * Q ** 2 * alphaExchange * w * sigmaFM * k ** 2 * muZero * omegaM
+	num_10 = -1 * Q * w * k ** 3 * 1j
+	num_11 = -1 * Q ** 2 * alphaExchange * w ** 2 * sigmaFM ** 2 * muZero ** 2 * omegaM * 1j
+	num_12 = -1 * alphaExchange * k ** 6 * omegaM * 1j
+	num_13 = -1 * k ** 4 * wH * 1j
+	num_14 = -1 * Q ** 4 * alphaExchange * k ** 2 * omegaM * 1j
+	num_15 = w ** 2 * sigmaFM ** 2 * wH * muZero ** 2 * 1j
+	num_16 = w ** 2 * sigmaFM ** 2 * muZero ** 2 * omegaM * 1j
+	num_17 = alphaExchange * w ** 2 * sigmaFM ** 2 * k ** 2 * muZero ** 2 * omegaM * 1j
+	num_18 = Q ** 2 * k ** 2 * wH * 1j
+
+	#numerator = -1 * num.sum()
+	numerator = -1 * (num_0 + num_1 + num_2 + num_3 + num_4 + num_5 + num_6 + num_7 + num_8 + num_9 + num_10 + num_11 + num_12 + num_13 + num_14 + num_15 + num_16 + num_17 + num_18)
 
 	denomOne = k ** 2 - Q ** 2 + w * sigmaFM * muZero * 1j
 
-	denomTwo = numpy.zeros(10, dtype = complex)
-	denomTwo[0] = w * sigmaFM * wH * muZero
-	denomTwo[1] = -1 * Q ** 4 * alphaExchange * omegaM * 1j
-	denomTwo[2] = w * sigmaFM * muZero * omegaM
-	denomTwo[3] = -1 * Q ** 2 * alphaExchange * w * sigmaFM * muZero * omegaM
-	denomTwo[4] = alphaExchange * w * sigmaFM * k ** 2 * muZero * omegaM
-	denomTwo[5] = -1 * k ** 2 * wH * 1j
-	denomTwo[6] = -1 * alphaExchange * k ** 4 * omegaM * 1j
-	denomTwo[7] = 2 * Q ** 2 * alphaExchange * k ** 2 * omegaM * 1j
-	denomTwo[8] = Q ** 2 * omegaM * 1j
-	denomTwo[9] = Q ** 2 * wH * 1j
+	#denomTwo = numpy.zeros(10, dtype = complex)
+	#denomTwo[0] = w * sigmaFM * wH * muZero
+	#denomTwo[1] = -1 * Q ** 4 * alphaExchange * omegaM * 1j
+	#denomTwo[2] = w * sigmaFM * muZero * omegaM
+	#denomTwo[3] = -1 * Q ** 2 * alphaExchange * w * sigmaFM * muZero * omegaM
+	#denomTwo[4] = alphaExchange * w * sigmaFM * k ** 2 * muZero * omegaM
+	#denomTwo[5] = -1 * k ** 2 * wH * 1j
+	#denomTwo[6] = -1 * alphaExchange * k ** 4 * omegaM * 1j
+	#denomTwo[7] = 2 * Q ** 2 * alphaExchange * k ** 2 * omegaM * 1j
+	#denomTwo[8] = Q ** 2 * omegaM * 1j
+	#denomTwo[9] = Q ** 2 * wH * 1j
 
-	denominator = denomOne * (denomTwo.sum())
+	denomTwo_0 = w * sigmaFM * wH * muZero
+	denomTwo_1 = -1 * Q ** 4 * alphaExchange * omegaM * 1j
+	denomTwo_2 = w * sigmaFM * muZero * omegaM
+	denomTwo_3 = -1 * Q ** 2 * alphaExchange * w * sigmaFM * muZero * omegaM
+	denomTwo_4 = alphaExchange * w * sigmaFM * k ** 2 * muZero * omegaM
+	denomTwo_5 = -1 * k ** 2 * wH * 1j
+	denomTwo_6 = -1 * alphaExchange * k ** 4 * omegaM * 1j
+	denomTwo_7 = 2 * Q ** 2 * alphaExchange * k ** 2 * omegaM * 1j
+	denomTwo_8 = Q ** 2 * omegaM * 1j
+	denomTwo_9 = Q ** 2 * wH * 1j
+
+	#denominator = denomOne * (denomTwo.sum())
+	denominator = denomOne * (denomTwo_0 + denomTwo_1 + denomTwo_2 + denomTwo_3 + denomTwo_4 + denomTwo_5 + denomTwo_6 + denomTwo_7 + denomTwo_8 + denomTwo_9)
 
 	return numerator / denominator
 
@@ -869,8 +919,11 @@ def main():
 
 	print("Start: JJI(1,1)")
 	var_time = time.time()
-	print(JJI(appliedH,centralFreq,1))
+	#print(JJI(appliedH,centralFreq,1))
 	print("Time: JJI(1,1) = ", time.time() - var_time)
+
+	cProfile.run('JJI(1,1,1)')
+
 	return 0
 
 
