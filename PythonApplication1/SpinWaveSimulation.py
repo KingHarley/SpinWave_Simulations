@@ -28,7 +28,7 @@ length_Antenna = 20 * 10 ** -6
 distance_Antennas = 2.464 * 10 ** -6
 
 #Setting up simulation points across Antenna
-pts_ground = 1
+pts_ground = 26
 del_width = wground / pts_ground
 pts_total = int(numpy.ceil((wsignal + 2 * wground) / del_width))
 pts_signal = pts_total - 2 * pts_ground
@@ -896,7 +896,7 @@ def create_JJI_ww_vecs(A, B):
 	return ww
 
 def create_JJI_I_matrix(ww_vecs, num_signal, num_ground, num_total):
-	I = numpy.zeros((3,3), dtype = complex)
+	I = numpy.zeros((3,3), dtype = numpy.complex128)
 	for i in range(3):
 		I[i,0] = ww_vecs[i, num_ground : num_ground + num_signal].sum()
 		I[i,1] = ww_vecs[i, 0 : num_ground].sum()
@@ -904,7 +904,7 @@ def create_JJI_I_matrix(ww_vecs, num_signal, num_ground, num_total):
 	return I
 
 def create_JJI_AL_matrix(Y11, matrix_Z):
-	AL = numpy.zeros((5,5), dtype = complex)
+	AL = numpy.zeros((5,5), dtype = numpy.complex128)
 	AL[3,0] = -(var_R1 + matrix_Z[0,0] - matrix_Z[1,0])
 	AL[4,0] = -(var_R1 + matrix_Z[0,0] - matrix_Z[2,0])
 	AL[3,1] = var_R2 - matrix_Z[0,1] + matrix_Z[1,1]
@@ -912,13 +912,257 @@ def create_JJI_AL_matrix(Y11, matrix_Z):
 	AL[3,2] = matrix_Z[1,2] - matrix_Z[0,2]
 	AL[4,2] = var_R2 - matrix_Z[0,2] + matrix_Z[2,2]
 	AL[0,3] = -Y11
-	AL[0,1] = -Y11
+	AL[1,3] = -Y11
 	AL[0,4] = -Y11
 	AL[2,4] = -Y11
 
 	return AL
 
-def JJI(H, w, Ycss):
+def create_JJI_bn_vec(eigVals, eigVecs):
+	bn_first = numpy.zeros((4,4), dtype=numpy.complex128)
+	bn_first[0,0] = eigVecs[0,0]+eigVecs[1,0]+eigVecs[2,0]
+	bn_first[0,1] = eigVecs[0,1]+eigVecs[1,1]+eigVecs[2,1]
+	bn_first[0,2] = eigVecs[0,2]+eigVecs[1,2]+eigVecs[2,2]
+	bn_first[0,3] = eigVecs[0,3]+eigVecs[1,3]+eigVecs[2,3]
+
+	bn_first[1,0] = eigVecs[3,0]
+	bn_first[1,1] = eigVecs[3,1]
+	bn_first[1,2] = eigVecs[3,2]
+	bn_first[1,3] = eigVecs[3,3]
+
+	bn_first[2,0] = eigVecs[4,0]
+	bn_first[2,1] = eigVecs[4,1]
+	bn_first[2,2] = eigVecs[4,2]
+	bn_first[2,3] = eigVecs[4,3]
+
+	bn_first[3,0] = (eigVecs[0,0]+eigVecs[1,0]+eigVecs[2,0]) * numpy.exp(eigVals[0] * length_Antenna)
+	bn_first[3,1] = (eigVecs[0,1]+eigVecs[1,1]+eigVecs[2,1]) * numpy.exp(eigVals[1] * length_Antenna)
+	bn_first[3,2] = (eigVecs[0,2]+eigVecs[1,2]+eigVecs[2,2]) * numpy.exp(eigVals[2] * length_Antenna)
+	bn_first[3,3] = (eigVecs[0,3]+eigVecs[1,3]+eigVecs[2,3]) * numpy.exp(eigVals[3] * length_Antenna)
+
+	bn_second = numpy.zeros(4, dtype = numpy.complex128)
+	bn_second[0] = -1 * (eigVecs[0,4]+eigVecs[1,4]+eigVecs[2,4])
+	bn_second[1] = -1 * eigVecs[3,4]
+	bn_second[2] = -1 * eigVecs[4,4]
+	bn_second[3] = -1 * (numpy.exp(eigVals[4] * length_Antenna) * (eigVecs[0,4]+eigVecs[1,4]+eigVecs[2,4]))
+
+	result = numpy.dot(numpy.linalg.inv(bn_first), bn_second)
+	return result
+
+def create_JJI_ZL_one_var(eigVals, eigVecs, bn):
+	ZL_one_num = numpy.zeros(5, dtype=numpy.complex128)
+	ZL_one_num[0] = eigVecs[3,4]*numpy.exp(length_Antenna * eigVals[4])
+	ZL_one_num[1] = eigVecs[3,0]*bn[0]*numpy.exp(length_Antenna*eigVals[0])
+	ZL_one_num[2] = eigVecs[3,1]*bn[1]*numpy.exp(length_Antenna*eigVals[1])
+	ZL_one_num[3] = eigVecs[3,2]*bn[2]*numpy.exp(length_Antenna*eigVals[2])
+	ZL_one_num[4] = eigVecs[3,3]*bn[3]*numpy.exp(length_Antenna*eigVals[3])
+
+	ZL_one_denom = numpy.zeros(5, dtype=numpy.complex128)
+	ZL_one_denom[0] = eigVecs[1,4]*numpy.exp(length_Antenna*eigVals[4])
+	ZL_one_denom[1] = eigVecs[1,0]*bn[0]*numpy.exp(length_Antenna*eigVals[0])
+	ZL_one_denom[2] = eigVecs[1,1]*bn[1]*numpy.exp(length_Antenna*eigVals[1])
+	ZL_one_denom[3] = eigVecs[1,2]*bn[2]*numpy.exp(length_Antenna*eigVals[2])
+	ZL_one_denom[4] = eigVecs[1,3]*bn[3]*numpy.exp(length_Antenna*eigVals[3])
+
+	ZL_one = -1 * (ZL_one_num.sum() / ZL_one_denom.sum())
+	return ZL_one
+
+def create_JJI_ZL_two_var(eigVals, eigVecs, bn):
+	ZL_two_num = numpy.zeros(5, dtype=numpy.complex128)
+	ZL_two_num[0] = eigVecs[4,4]*numpy.exp(length_Antenna*eigVals[4])
+	ZL_two_num[1] = eigVecs[4,0]*bn[0]*numpy.exp(length_Antenna*eigVals[0])
+	ZL_two_num[2] = eigVecs[4,1]*bn[1]*numpy.exp(length_Antenna*eigVals[1])
+	ZL_two_num[3] = eigVecs[4,2]*bn[2]*numpy.exp(length_Antenna*eigVals[2])
+	ZL_two_num[4] = eigVecs[4,3]*bn[3]*numpy.exp(length_Antenna*eigVals[3])
+
+	ZL_two_denom = numpy.zeros(5, dtype=numpy.complex128)
+	ZL_two_denom[0] = eigVecs[2,4]*numpy.exp(length_Antenna*eigVals[4])
+	ZL_two_denom[1] = eigVecs[2,0]*bn[0]*numpy.exp(length_Antenna*eigVals[0])
+	ZL_two_denom[2] = eigVecs[2,1]*bn[1]*numpy.exp(length_Antenna*eigVals[1])
+	ZL_two_denom[3] = eigVecs[2,2]*bn[2]*numpy.exp(length_Antenna*eigVals[2])
+	ZL_two_denom[4] = eigVecs[2,3]*bn[3]*numpy.exp(length_Antenna*eigVals[3])
+
+	ZL_two = -1 * (ZL_two_num.sum() / ZL_two_denom.sum())
+	return ZL_two
+
+def create_JJI_Ic_vec(ZL_one, ZL_two):
+	Ic = numpy.zeros(3, dtype=numpy.complex128)
+	Ic[0] =  2 / (2 * var_zc + ZL_one) + 2 / (2 * var_zc + ZL_two)
+	Ic[1] = -2 / (2 * var_zc + ZL_one)
+	Ic[2] = -2 / (2 * var_zc + ZL_two)
+
+	return Ic
+
+def create_JJI_b5_var(eigVals, eigVecs, bn, Ic):
+	numerator = Ic[0]
+	denominator = sum(eigVecs[0,0:4] * bn[0:4] * numpy.exp(length_Antenna * eigVals[0:4])) + eigVecs[0,4] * numpy.exp(length_Antenna * eigVals[4])
+	#denominator = 0
+	#for i in range(4):
+	#	denominator += eigVecs[0,i] * bn[i] * numpy.exp(length_Antenna * eigVals[i])
+	#denominator += eigVecs[0,4] * numpy.exp(length_Antenna * eigVals[4])
+
+	return numerator / denominator
+
+def create_JJI_Iaverage_vec(vec_Ic, eigVals, eigVecs, bn):
+	Iaverage = numpy.zeros(3, dtype = numpy.complex128)
+	numerator= sum(eigVecs[0,0:4]*bn[0:4] * (numpy.exp(length_Antenna * eigVals[0:4]) - 1) / (length_Antenna * eigVals[0:4]))
+	numerator += eigVecs[0,4] * (numpy.exp(length_Antenna * eigVals[4]) - 1) / (length_Antenna * eigVals[4])
+	denominator = sum(eigVecs[0,0:4]*bn[0:4]*numpy.exp(length_Antenna * eigVals[0:4]))
+	denominator += eigVecs[0,4] * numpy.exp(length_Antenna * eigVals[4])
+	#numerator = 0
+	#denominator = 0
+	#for i in range(4):
+	#	numerator += eigVecs[0,i]*bn[i] * (numpy.exp(length_Antenna * eigVals[i]) - 1) / (length_Antenna * eigVals[i])
+	#	denominator += eigVecs[0,i]*bn[i]*numpy.exp(length_Antenna * eigVals[i])
+	#numerator += eigVecs[0,4] * (numpy.exp(length_Antenna * eigVals[4]) - 1) / (length_Antenna * eigVals[4])
+	#denominator += eigVecs[0,4] * numpy.exp(length_Antenna * eigVals[4])
+	Iaverage[0] = vec_Ic[0] * (numerator / denominator)
+
+	numerator = sum(eigVecs[1,0:4] * bn[0:4] * (numpy.exp(length_Antenna * eigVals[0:4]) - 1) / (length_Antenna * eigVals[0:4]))
+	numerator += eigVecs[1,4] * (numpy.exp(length_Antenna * eigVals[4]) - 1) / (length_Antenna * eigVals[4])
+	denominator = sum(eigVecs[1,0:4]*bn[0:4] * numpy.exp(length_Antenna * eigVals[0:4]))
+	denominator += eigVecs[1,4] * numpy.exp(length_Antenna * eigVals[4])
+	#numerator = 0
+	#denominator = 0
+	#for i in range(4):
+	#	numerator += eigVecs[1,i]*bn[i] * (numpy.exp(length_Antenna * eigVals[i]) - 1) / (length_Antenna * eigVals[i])
+	#	denominator += eigVecs[1,i]*bn[i] * numpy.exp(length_Antenna * eigVals[i])
+	#numerator += eigVecs[1,4] * (numpy.exp(length_Antenna * eigVals[4]) - 1) / (length_Antenna * eigVals[4])
+	#denominator += eigVecs[1,4] * numpy.exp(length_Antenna * eigVals[4])
+	Iaverage[1] = vec_Ic[1] * (numerator / denominator)
+
+	#numerator = 0
+	#denominator = 0
+	#for i in range(4):
+	#	numerator += eigVecs[2,i]*bn[i] * (numpy.exp(length_Antenna * eigVals[i]) - 1) / (length_Antenna * eigVals[i])
+	#	denominator += eigVecs[2,i]*bn[i] * numpy.exp(length_Antenna * eigVals[i])
+	numerator = sum(eigVecs[2,0:4]*bn[0:4] * (numpy.exp(length_Antenna * eigVals[0:4]) - 1) / (length_Antenna * eigVals[0:4]))
+	denominator = sum(eigVecs[2,0:4]*bn[0:4] * numpy.exp(length_Antenna * eigVals[0:4]))
+	numerator += eigVecs[2,4] * (numpy.exp(length_Antenna * eigVals[4]) - 1) / (length_Antenna * eigVals[4])
+	denominator += eigVecs[2,4] * numpy.exp(length_Antenna * eigVals[4])
+	Iaverage[2] = vec_Ic[2] * (numerator / denominator)
+
+	return Iaverage
+
+def create_JJI_J4average_var(eigVals, eigVecs, bn, b5):
+	first_term = sum(eigVals[0:4] * eigVecs[0,0:4] * bn[0:4] * (numpy.exp(length_Antenna * eigVals[0:4]) - 1) / (length_Antenna * eigVals[0:4]))
+	#for i in range(4):
+	#	first_term += eigVals[i] * eigVecs[0,i] * bn[i] * (numpy.exp(length_Antenna * eigVals[i]) - 1) / (length_Antenna * eigVals[i])
+	first_term += eigVals[4] * eigVecs[0,4] * (numpy.exp(length_Antenna * eigVals[4]) - 1) / (length_Antenna * eigVals[4])
+	result = first_term * b5
+	return result
+
+def create_JJI_E_vec(ZZ, x, Ic):
+	first_term = ZZ + x * numpy.matrix([[var_R1, 0, 0], [0, var_R2, 0], [0, 0, var_R2]])
+	result = numpy.dot(first_term, Ic)
+	return result
+
+def create_JJI_B2_vec(E):
+	B2 = numpy.zeros(pts_total, dtype = numpy.complex128)
+	for i in range(pts_ground):
+		B2[i] = E[0,1]
+		B2[i+pts_signal+pts_ground] = E[0,2]
+	for i in range(pts_signal):
+		B2[i+pts_ground] = E[0,0]
+	return B2
+
+def create_JJI_Gout_matrix(H, delH, xj, xi, w):
+	Gout = numpy.zeros((pts_total, pts_total), dtype = numpy.complex128)
+	for i in range(pts_total):
+		Gout[i,0] = eG(H + delH, xi[i] - xj[0], w)
+		Gout[0,i] = eG(H + delH, xi[0] - xj[i], w)
+	for i in range(1, pts_total):
+		for j in range(1, pts_total):
+			if abs((xi[i] - xj[j]) - (xi[i-1] - xj[j-1])) < (del_width / 10):
+				Gout[i,j] = Gout[i-1, j-1]
+			else:
+				Gout[i,j] = eG(H + delH, xi[i] - xj[j], w)
+	return Gout
+
+def create_JJI_Diag_matrix(eigVals):
+	Diag = numpy.zeros((5,5), dtype = numpy.complex128)
+	for i in range(5):
+		Diag[i,i] = (numpy.exp(eigVals[i] * length_Antenna) - 1) / eigVals[i]
+	return Diag
+
+def create_JJI_E2_vec(Gout, ww):
+	E2 = numpy.zeros(3, dtype = numpy.complex128)
+	E2[1] = 0
+	E2[0] = 0
+	E2[2] = 0
+	for i in range(pts_ground):
+		for j in range(pts_total):
+			E2[1] += Gout[i,j] * ww[j]
+	E2[1] = del_width * E2[1] / pts_ground
+
+	for i in range(pts_ground, pts_ground + pts_signal):
+		for j in range(pts_total):
+			E2[0] += Gout[i,j] * ww[j]
+	E2[0] = del_width * E2[0] / pts_signal
+
+	for i in range(pts_ground + pts_signal, pts_total):
+		for j in range(pts_total):
+			E2[2] += Gout[i,j] * ww[j]
+	E2[2] = del_width * E2[2] / pts_ground
+	return E2
+
+def create_JJI_B0_vec(eigVecs, Diag, E2):
+	B0 = numpy.zeros(5, dtype = numpy.complex128)
+	last_vec = numpy.zeros(5, dtype = numpy.complex128)
+	last_vec[3] = -(E2[1] - E2[0])
+	last_vec[4] = -(E2[2] - E2[0])
+	B0 = numpy.dot(numpy.dot(numpy.dot(eigVecs,Diag), numpy.linalg.inv(eigVecs)), last_vec)
+	return B0
+
+def create_JJI_C_matrix(eigVals, eigVecs):
+	C = numpy.zeros((5,5), dtype = numpy.complex128)
+	for i in range(5):
+		C[0,i] = eigVecs[0,i] + eigVecs[1,i] + eigVecs[2,i]
+		C[1,i] = eigVecs[3,i]
+		C[2,i] = eigVecs[4,i]
+		C[3,i] = (eigVecs[1,i] * 2 * var_zc - eigVecs[3,i]) * numpy.exp(eigVals[i] * length_Antenna)
+		C[4,i] = (eigVecs[2,i] * 2 * var_zc - eigVecs[4,i]) * numpy.exp(eigVals[i] * length_Antenna)
+	return C
+
+def create_JJI_F_vec(B0):
+	F = numpy.zeros(5, dtype = numpy.complex128)
+	F[3] = -(B0[1] * 2 * var_zc - B0[3])
+	F[4] = -(B0[2] * 2 * var_zc - B0[4])
+	return F
+
+def create_JJI_Iout_vec(eigVals, eigVecs, b, B0):
+	Iout = numpy.zeros(3, dtype = numpy.complex128)
+	for i in range(3):
+		for j in range(5):
+			Iout[i] += eigVecs[i,j] * b[j] * numpy.exp(eigVals[j] * length_Antenna)
+		Iout[i] += B0[i]
+	return Iout
+
+def create_JJI_Vout_var(eigVals, eigVecs, b, B0):
+	Vout = 0
+	for i in range(5):
+		Vout += eigVecs[3,i] * b[i] * numpy.exp(eigVals[i] * length_Antenna) + eigVecs[4,i] * b[i] * numpy.exp(eigVals[i] * length_Antenna)
+	Vout += B0[3] + B0[4]
+	Vout = Vout / 2
+	return Vout
+
+def create_JJI_Z_vec(JJI_gamma, E, Iout, Vout, ZL_one, ZL_two, j4average, w, Iaverage, Ic):
+	Z = numpy.zeros(12, dtype = numpy.complex128)
+	Z[0] = JJI_gamma
+	Z[1] = E[0]
+	Z[2] = E[1]
+	Z[3] = E[2]
+	Z[4] = Iout[0]
+	Z[5] = Iout[1]
+	Z[6] = Iout[2]
+	Z[7] = Vout
+	Z[8] = ZL_one
+	Z[9] = ZL_two
+	Z[10] = j4average / (1j * w)
+	Z[11] = Iaverage[0] / Ic[0]
+	return Z
+
+def JJI(H, w, Ycss_w):
 	var_time = time.time()
 	var_delH = del_H(w)
 	print("Time: del_H(w) = ", time.time() - var_time)
@@ -942,30 +1186,60 @@ def JJI(H, w, Ycss):
 	var_time = time.time()
 	matrix_JJI_I = create_JJI_I_matrix(vecs_JJI_ww, pts_signal, pts_ground, pts_total)
 	print("Time: create_JJI_I_matrix = ", time.time() - var_time)
+	print(matrix_JJI_I)
+	#return matrix_JJI_I
 
-	return matrix_JJI_I
-
-	matrix_ZZ = numpy.linalg.inv(numpy.transpose(matrix_JJI_I)) / del_width
-	var_Y11 = Ycss * w
+	matrix_JJI_ZZ = numpy.linalg.inv(numpy.transpose(matrix_JJI_I)) / del_width
+	var_Y11 = Ycss_w
 
 	var_time = time.time()
-	matrix_JJI_AL = create_JJI_AL_matrix(var_Y11, matrix_ZZ)
+	matrix_JJI_AL = create_JJI_AL_matrix(var_Y11, matrix_JJI_ZZ)
 	print("Time: create_JJI_AL_matrix = ", time.time() - var_time)
+	print(matrix_JJI_AL)
 
-	vec_eigAL = numpy.linalg.eig(AL)[0]
-	vec_eigVecAL = numpy.linalg.eig(AL)[1]
+	vec_eigAL = numpy.linalg.eig(matrix_JJI_AL)[0]
+	vec_eigVecAL = numpy.linalg.eig(matrix_JJI_AL)[1]
+	print(vec_eigAL)
+	print(vec_eigVecAL)
 
-	return matrix_JJI_AL
+	vec_JJI_bn = create_JJI_bn_vec(vec_eigAL, vec_eigVecAL)
+	var_JJI_ZL_one = create_JJI_ZL_one_var(vec_eigAL, vec_eigVecAL, vec_JJI_bn)
+	var_JJI_ZL_two = create_JJI_ZL_two_var(vec_eigAL, vec_eigVecAL, vec_JJI_bn)
+	var_JJI_ZL = var_JJI_ZL_one * var_JJI_ZL_two / (var_JJI_ZL_one + var_JJI_ZL_two)
+	var_JJI_gamma = (var_JJI_ZL - var_zc) / (var_JJI_ZL + var_zc)
+	vec_JJI_Ic = create_JJI_Ic_vec(var_JJI_ZL_one, var_JJI_ZL_two)
+	var_JJI_b5 = create_JJI_b5_var(vec_eigAL, vec_eigVecAL, vec_JJI_bn, vec_JJI_Ic)
+	vec_JJI_Iaverage = create_JJI_Iaverage_vec(vec_JJI_Ic, vec_eigAL, vec_eigVecAL, vec_JJI_bn)
+	var_JJI_J4average = create_JJI_J4average_var(vec_eigAL, vec_eigVecAL, vec_JJI_bn, var_JJI_b5)
+	vec_JJI_E = create_JJI_E_vec(matrix_JJI_ZZ, 0, vec_JJI_Ic)
+	vec_JJI_B2 = create_JJI_B2_vec(vec_JJI_E)
+	vec_JJI_ww2 = numpy.linalg.solve(matrix_JJI_A, vec_JJI_B2)
+	vec_JJI_xi = create_xi_vec()
+	vec_JJI_xj = create_xj_vec()
+	matrix_JJI_Gout = create_JJI_Gout_matrix(H, var_delH, vec_JJI_xj, vec_JJI_xi, w)
+	vec_JJI_E2 = create_JJI_E2_vec(matrix_JJI_Gout, vec_JJI_ww2)
+	matrix_JJI_Diag = create_JJI_Diag_matrix(vec_eigAL)
+	vec_JJI_B0 = create_JJI_B0_vec(vec_eigVecAL, matrix_JJI_Diag, vec_JJI_E2)
+	matrix_JJI_C = create_JJI_C_matrix(vec_eigAL, vec_eigVecAL)
+	vec_JJI_F = create_JJI_F_vec(vec_JJI_B0)
+	var_JJI_b = numpy.dot(numpy.linalg.inv(matrix_JJI_C), vec_JJI_F)
+	vec_JJI_Iout = create_JJI_Iout_vec(vec_eigAL, vec_eigVecAL, var_JJI_b, vec_JJI_B0)
+	var_JJI_Vout = create_JJI_Vout_var(vec_eigAL, vec_eigVecAL, var_JJI_b, vec_JJI_B0)
+	vec_JJI_Z = create_JJI_Z_vec(var_JJI_gamma, vec_JJI_E2, vec_JJI_Iout, var_JJI_Vout, var_JJI_ZL_one, var_JJI_ZL_two, var_JJI_J4average, w, vec_JJI_Iaverage, vec_JJI_Ic)
+
+	print("vec_JJI_Z: ")
+	print(vec_JJI_Z)
+	return vec_JJI_Z
 
 def main():
 	print("Start: antennaCalcs()")
 	var_time = time.time()
-	var_Ycss = antennaCalcs()
+	#var_Ycss = antennaCalcs() * centralFreq
 	print("Time: antennaCalcs() = ", time.time() - var_time)
 
 	print("Start: MM(1,1,1)")
 	var_time = time.time()
-	MM(1,1,1)
+	#MM(1,1,1)
 	print("Time: MM(1,1,1) = ", time.time() - var_time)
 
 	print("Start: JJI(1,1)")
@@ -977,7 +1251,7 @@ def main():
 
 
 if __name__ == '__main__':
-	cProfile.run('JJI(appliedH,centralFreq,1)', 'profile_stats')
+	cProfile.run('JJI(appliedH,centralFreq, 10.485j)', 'profile_stats')
 	p = pstats.Stats('profile_stats')
 	p.strip_dirs().sort_stats('file').print_stats()
 	p.sort_stats('time').print_stats()
