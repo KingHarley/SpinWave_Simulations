@@ -1,5 +1,6 @@
 #All imports go here
 import time
+import pstats
 import cProfile
 import numpy
 import scipy
@@ -83,6 +84,7 @@ def Z0(kk, kks, kkl, kkls):
 	denominator = numpy.sqrt(epsilonEff(kk, kks, kkl, kkls)) * ((kellip(kk) / kellip(kks)) + (kellip(kkl) / kellip(kkls)))
 	return (numerator / denominator)
 
+
 def kellip(x):
 	#print("x = ", x)
 	a = 1
@@ -109,6 +111,7 @@ def kellip(x):
 		c = cn
 	return K
 
+
 def epsilonEff(kk, kks, kkl, kkls):
 	numerator = kellip(kks) * kellip(kkl) / (kellip(kk) * kellip(kkls))
 	denominator = kellip(kks) * kellip(kkl) / (kellip(kk) * kellip(kkls))
@@ -120,7 +123,8 @@ def gg(k):
 		return lambda x : (-1 * numpy.sinh(thicknessSi * abs(x)) / (epsZero * abs(x) * (numpy.sinh(thicknessSi * abs(x)) + epsilonSi * numpy.cosh(thicknessSi * abs(x)))))
 	else:
 		return lambda x : (-1 / (epsZero * abs(x) * (1 + epsilonSi))) 
-	
+
+@jit(nopython=True)	
 def Ei(x):
 	ei = 1
 	for n in range(600,0,-1):
@@ -128,6 +132,7 @@ def Ei(x):
 	ei = numpy.exp(-x) / (x + 1 / ei)
 	return ei
 
+@jit(nopython=True)
 def Ci(x):
 	result = -1 * (Ei(x * 1j) + Ei(-1j * x)) / 2
 	return result
@@ -235,7 +240,7 @@ def antennaCalcs():
 	Q2 = (deltaW*Qpresult[numground+2:numground+numsignal+2]).sum()
 	return Ycss
 	
-
+@jit(nopython=True)
 def ww(k, H):
 	firstTerm = gamma**2 * H * (H + satMs)
 	secondTerm = ((gamma * satMs) ** 2)/4 * (-1 * numpy.exp(-2 * abs(k) * thicknessFM) + 1)
@@ -246,14 +251,17 @@ def del_H(w):
 	result = 1j * w * gilDamping / gamma
 	return result
 
+@jit(nopython=True)
 def Q2(w):
 	result = w * sigmaRu * muZero * 1j
 	return result
 
+@jit(nopython=True)
 def Q4(w):
 	result = w * sigmaPt * muZero * 1j
 	return result
 
+@jit(nopython=True)
 def QQ(w):
 	first = abs(numpy.sqrt(Q2(w)))
 	second = abs(numpy.sqrt(Q4(w)))
@@ -261,6 +269,7 @@ def QQ(w):
 	result = max(first, second, third)
 	return result
 
+@jit(nopython=True)
 def S0h(K2, k):
 	numerator = -1j * k * (K2 * numpy.cosh(K2*thicknessRu) + abs(k) * numpy.sinh(K2*thicknessRu))
 	denominator = K2 * (K2 * numpy.sinh(K2 * thicknessRu) + numpy.cosh(K2 * thicknessRu) * abs(k))
@@ -269,6 +278,7 @@ def S0h(K2, k):
 	else:
 		return -k * 1j / K2
 
+@jit(nopython=True)
 def SLj(K4, k, w):
 	if k < 20 * QQ(w):
 		numerator = k * 1j * numpy.exp(-thicknessSi * abs(k))
@@ -277,7 +287,8 @@ def SLj(K4, k, w):
 	else:
 		result = numpy.sign(k) * numpy.exp(-1 * (thicknessSi+thicknessPt) * abs(k)) * 1j
 		return result
-	
+
+@jit(nopython=True)
 def SLh(K4, k):
 	numerator = k * 1j * (K4 * numpy.cosh(K4 * thicknessPt) + numpy.sinh(K4 * thicknessPt) * abs(k))
 	denominator = K4 * (K4 * numpy.sinh(K4 * thicknessPt) + numpy.cosh(K4 * thicknessPt) * abs(k))
@@ -393,8 +404,9 @@ def Chx(Q, k, wH, w):
 
 	return numerator / denominator
 
+@jit(nopython=True)
 def Chy(Q, k, wH, w):
-	num = numpy.zeros(34, dtype = complex)
+	num = numpy.zeros(34, dtype = numpy.complex128)
 	num[0] = Q ** 5 * alphaExchange ** 2 * w * sigmaFM * k * muZero * omegaM ** 2
 	num[1] = -2 * Q ** 4 * alphaExchange * w * k ** 2 * omegaM * 1j
 	num[2] = -1 * Q ** 4 * w * omegaM * 1j
@@ -465,6 +477,7 @@ def Chy(Q, k, wH, w):
 
 	return numerator / denominator
 
+@jit(nopython=True)
 def create_b_var(k, wH, w):
 	firstTerm = -3 * alphaExchange ** 2 * k ** 2 * omegaM ** 2
 	secondTerm = -alphaExchange * omegaM ** 2
@@ -473,12 +486,13 @@ def create_b_var(k, wH, w):
 	result = firstTerm + secondTerm + thirdTerm + fourthTerm
 	return result
 
+@jit(nopython=True)
 def create_c_var(k, wH, w):
-	firstTerm = numpy.zeros(2, dtype = complex)
+	firstTerm = numpy.zeros(2, dtype = numpy.complex128)
 	firstTerm[0] = 3 * k ** 4 * omegaM ** 2
 	firstTerm[1] = 2 * w * sigmaFM * k ** 2 * muZero * omegaM ** 2 * 1j
 
-	secondTerm = numpy.zeros(4, dtype = complex)
+	secondTerm = numpy.zeros(4, dtype = numpy.complex128)
 	secondTerm[0] = 2 * k ** 2 * omegaM ** 2
 	secondTerm[1] = 4 * wH * k ** 2 * omegaM
 	secondTerm[2] = 2 * w * sigmaFM * muZero * omegaM ** 2 * 1j
@@ -491,18 +505,19 @@ def create_c_var(k, wH, w):
 	result = firstTerm.sum() * alphaExchange ** 2 + secondTerm.sum() * alphaExchange + thirdTerm + fourthTerm + fifthTerm
 	return result
 
+@jit(nopython=True)
 def create_d_var(k, wH, w):
-	firstTerm = numpy.zeros(2, dtype = complex)
+	firstTerm = numpy.zeros(2, dtype = numpy.complex128)
 	firstTerm[0] = -1 * k ** 6 * omegaM ** 2
 	firstTerm[1] = -1 * w * sigmaFM * k ** 4 * muZero * omegaM ** 2 * 1j
 
-	secondTerm = numpy.zeros(4, dtype = complex)
+	secondTerm = numpy.zeros(4, dtype = numpy.complex128)
 	secondTerm[0] = -1 * k ** 4 * omegaM ** 2
 	secondTerm[1] = -2 * wH * k ** 4 * omegaM
 	secondTerm[2] = -2 * w * sigmaFM * wH * muZero * k ** 2 * omegaM * 1j
 	secondTerm[3] = -2 * w * sigmaFM * k ** 2 * muZero * omegaM ** 2 * 1j
 
-	thirdTerm = numpy.zeros(7, dtype = complex)
+	thirdTerm = numpy.zeros(7, dtype = numpy.complex128)
 	thirdTerm[0] = w ** 2 * k ** 2
 	thirdTerm[1] = -2 * sigmaFM * muZero * w * wH * omegaM * 1j
 	thirdTerm[2] = -1 * k ** 2 * wH ** 2
@@ -514,8 +529,9 @@ def create_d_var(k, wH, w):
 	result = firstTerm.sum() * alphaExchange ** 2 + secondTerm.sum() * alphaExchange + thirdTerm.sum()
 	return result
 
+@jit(nopython=True)
 def create_DD_var(a, b, c, d):
-	term = numpy.zeros(8, dtype = complex)
+	term = numpy.zeros(8, dtype = numpy.complex128)
 	term[0] = c ** 3 / (27 * a ** 3)
 	term[1] = d ** 2 / (4 * a ** 2)
 	term[2] = (b ** 3 * d) / (27 * a ** 4)
@@ -530,16 +546,18 @@ def create_DD_var(a, b, c, d):
 	result = (root + nonroot) ** (1/3)
 	return result
 
+@jit(nopython=True)
 def create_Q1_var(a, b, c, DD):
-	term = numpy.zeros(3, dtype = complex)
+	term = numpy.zeros(3, dtype = numpy.complex128)
 	term[0] = DD
 	term[1] = (c / (3*a) - b ** 2 / (9 * a ** 2)) / DD
 	term[2] = b/ (3 * a)
 	result = numpy.sqrt(term[0] - term[1] - term[2])
 	return result
 
+@jit(nopython=True)
 def create_Q2_var(a, b, c, DD):
-	term = numpy.zeros(3, dtype = complex)
+	term = numpy.zeros(3, dtype = numpy.complex128)
 	term[0] = c / (3 * a)
 	term[1] = -1 * b ** 2 / (9 * a ** 2)
 	term[2] = -1 * b / (3 * a)
@@ -548,8 +566,9 @@ def create_Q2_var(a, b, c, DD):
 	result = numpy.sqrt(realTerm + imagTerm)
 	return result
 
+@jit(nopython=True)
 def create_Q3_var(a, b, c, DD):
-	term = numpy.zeros(6, dtype = complex)
+	term = numpy.zeros(6, dtype = numpy.complex128)
 	term[0] = c / (3 * a)
 	term[1] = -1 * b ** 2 / (9 * a ** 2)
 	term[2] = -1 * b / (3 * a)
@@ -561,28 +580,49 @@ def create_Q3_var(a, b, c, DD):
 	result = numpy.sqrt(realTerm + imagTerm)
 	return result
 
+
+
+@jit(nopython=True)
 def create_Cmy_vec(Q1, Q2, Q3, k, wH, w):
-	temp_Cmy = numpy.zeros(6, dtype = complex)
+	temp_Cmy = numpy.zeros(6, dtype = numpy.complex128)
 	temp_Cmy[0] = Cmy(Q1, k, wH, w)
 	temp_Cmy[1] = Cmy(Q2, k, wH, w)
 	temp_Cmy[2] = Cmy(Q3, k, wH, w)
 	temp_Cmy[3] = Cmy(-Q1, k, wH, w)
 	temp_Cmy[4] = Cmy(-Q2, k, wH, w)
 	temp_Cmy[5] = Cmy(-Q3, k, wH, w)
+
+	#temp_Cmy_0 = Cmy(Q1, k, wH, w)
+	#temp_Cmy_1 = Cmy(Q2, k, wH, w)
+	#temp_Cmy_2 = Cmy(Q3, k, wH, w)
+	#temp_Cmy_3 = Cmy(-Q1, k, wH, w)
+	#temp_Cmy_4 = Cmy(-Q2, k, wH, w)
+	#temp_Cmy_5 = Cmy(-Q3, k, wH, w)
 	return temp_Cmy
 
+
+@jit(nopython=True)
 def create_Chx_vec(Q1, Q2, Q3, k, wH, w):
-	temp_Chx = numpy.zeros(6, dtype = complex)
+	temp_Chx = numpy.zeros(6, dtype = numpy.complex128)
 	temp_Chx[0] = Chx(Q1, k, wH, w)
 	temp_Chx[1] = Chx(Q2, k, wH, w)
 	temp_Chx[2] = Chx(Q3, k, wH, w)
 	temp_Chx[3] = Chx(-Q1, k, wH, w)
 	temp_Chx[4] = Chx(-Q2, k, wH, w)
 	temp_Chx[5] = Chx(-Q3, k, wH, w)
+
+	#temp_Chx_0 = Chx(Q1, k, wH, w)
+	#temp_Chx_1 = Chx(Q2, k, wH, w)
+	#temp_Chx_2 = Chx(Q3, k, wH, w)
+	#temp_Chx_3 = Chx(-Q1, k, wH, w)
+	#temp_Chx_4 = Chx(-Q2, k, wH, w)
+	#temp_Chx_5 = Chx(-Q3, k, wH, w)
+	#return (temp_Chx_0, temp_Chx_1, temp_Chx_2, temp_Chx_3, temp_Chx_4, temp_Chx_5)
 	return temp_Chx
 
+@jit(nopython=True)
 def create_A_matrix(Q1, Q2, Q3, k, Cmy_vec, Chx_vec, SS0h, SSLh, Rm, Rh):
-	temp_A = numpy.zeros((6,6), dtype = complex)
+	temp_A = numpy.zeros((6,6), dtype = numpy.complex128)
 	temp_A[0,0] = Q1 - pinning_d1x + bulk_DD1 * k * Cmy_vec[0]
 	temp_A[0,1] = Q2 - pinning_d1x + bulk_DD1 * k * Cmy_vec[1]
 	temp_A[0,2] = Q3 - pinning_d1x + bulk_DD1 * k * Cmy_vec[2]
@@ -622,8 +662,9 @@ def create_A_matrix(Q1, Q2, Q3, k, Cmy_vec, Chx_vec, SS0h, SSLh, Rm, Rh):
 
 	return temp_A
 
+@jit(nopython=True)
 def create_B_matrix(A):
-	temp_B = numpy.zeros((4,4), dtype = complex)
+	temp_B = numpy.zeros((4,4), dtype = numpy.complex128)
 	temp_B[0,0] = A[0,0]*A[1,4]*A[2,5] - A[0,0]*A[1,5]*A[2,4] - A[1,0]*A[0,4]*A[2,5] + A[1,0]*A[0,5]*A[2,4] + A[2,0]*A[0,4]*A[1,5] - A[2,0]*A[0,5]*A[1,4]
 	temp_B[0,1] = A[0,1]*A[1,4]*A[2,5] - A[0,1]*A[1,5]*A[2,4] - A[1,1]*A[0,4]*A[2,5] + A[1,1]*A[0,5]*A[2,4] + A[2,1]*A[0,4]*A[1,5] - A[2,1]*A[0,5]*A[1,4]
 	temp_B[0,2] = A[0,2]*A[1,4]*A[2,5] - A[0,2]*A[1,5]*A[2,4] - A[1,2]*A[0,4]*A[2,5] + A[1,2]*A[0,5]*A[2,4] + A[2,2]*A[0,4]*A[1,5] - A[2,2]*A[0,5]*A[1,4]
@@ -643,8 +684,9 @@ def create_B_matrix(A):
 
 	return temp_B
 
+@jit(nopython=True)
 def create_M_vec(A, B, DD, Det):
-	M = numpy.zeros(6, dtype = complex)
+	M = numpy.zeros(6, dtype = numpy.complex128)
 	M[0] = -(DD / Det) * (B[0,1]*B[1,2]*B[2,3] - B[0,1]*B[1,3]*B[2,2] - B[0,2]*B[1,1]*B[2,3] + B[0,2]*B[2,1]*B[1,3] + B[1,1]*B[0,3]*B[2,2] - B[0,3]*B[1,2]*B[2,1])
 	M[1] = (DD / Det) * (B[0,0]*B[1,2]*B[2,3] - B[0,0]*B[1,3]*B[2,2] - B[1,0]*B[0,2]*B[2,3] + B[1,0]*B[0,3]*B[2,2] + B[0,2]*B[2,0]*B[1,3] - B[2,0]*B[0,3]*B[1,2])
 	M[2] = -(DD / Det) * (B[0,0]*B[1,1]*B[2,3] - B[0,0]*B[2,1]*B[1,3] - B[0,1]*B[1,0]*B[2,3] + B[0,1]*B[2,0]*B[1,3] + B[1,0]*B[0,3]*B[2,1] - B[1,1]*B[2,0]*B[0,3])
@@ -655,8 +697,9 @@ def create_M_vec(A, B, DD, Det):
 	M[5] = -1 * (A[0,0]*M[0] + A[0,1]*M[1] + A[0,2]*M[2] + A[0,3]*M[3] + A[0,4]*M[4]) / A[0,5]
 	return M
 
+@jit(nopython=True)
 def create_hxk_var(Chx_vec, M_vec, Q1, Q2, Q3):
-	term = numpy.zeros(6, dtype = complex)
+	term = numpy.zeros(6, dtype = numpy.complex128)
 	term[0] = Chx_vec[0] * M_vec[0] * numpy.exp(Q1 * thicknessFM)
 	term[1] = Chx_vec[1] * M_vec[1] * numpy.exp(Q2 * thicknessFM)
 	term[2] = Chx_vec[2] * M_vec[2] * numpy.exp(Q3 * thicknessFM)
@@ -666,12 +709,14 @@ def create_hxk_var(Chx_vec, M_vec, Q1, Q2, Q3):
 	result = term.sum()
 	return result
 
+@jit(nopython=True)
 def create_hyl_var(k, K4, hxk):
 	numerator = -1 * numpy.sign(k) * 1j * k ** 2 * hxk * numpy.exp(-1 * abs(k) * thicknessFM)
 	denominator = k ** 2 * numpy.cosh(K4 * thicknessPt) + K4 * numpy.sinh(K4 * thicknessPt) * abs(k)
 	result = numerator / denominator
 	return result
 
+@jit(nopython=True)
 def MM(k, wH, w):
 	var_K2 = numpy.sqrt(Q2(w) + k ** 2)
 	var_K4 = numpy.sqrt(Q4(w) + k ** 2)
@@ -701,20 +746,23 @@ def MM(k, wH, w):
 	result_ek = -1 * (w * muZero * var_hyl) / k
 	return result_ek
 
+@jit(nopython=True)
 def create_Gind_integral(z, w, k):
 	arg_One = numpy.sqrt(Q4(w) + k ** 2)
 	arg_Two = thicknessSi * abs(k)
-	num = numpy.zeros(2, dtype = complex)
+
+	num = numpy.zeros(2, dtype = numpy.complex128)
 	num[0] = k ** 2 * numpy.cosh(arg_One * thicknessPt) * numpy.cosh(arg_Two)
 	num[1] = arg_One * numpy.sinh(arg_One * thicknessPt) * numpy.sinh(arg_Two) * abs(k)
 	numerator = -1j * num.sum() * numpy.exp(-abs(k) * thicknessSi) * numpy.cos(k * z)
-	denom = numpy.zeros(2, dtype = complex)
+
+	denom = numpy.zeros(2, dtype = numpy.complex128)
 	denom[0] = k ** 2 * numpy.cosh(arg_One * thicknessPt)
 	denom[1] = arg_One * numpy.sinh(arg_One * thicknessPt) * abs(k)
 	denominator = abs(k) * denom.sum()
 	result = numerator / denominator
 	return result
-	 
+	
 def Gind(z, w):
 	upper_Bound = 20 * QQ(w)
 	lower_Bound = 0
@@ -731,6 +779,7 @@ def Gind(z, w):
 	result = first_Term + second_Term
 	return result
 
+@jit(nopython=True)
 def create_eG_integral(k, H, z, w):
 	first_Term = MM(k, H * gamma, w) * numpy.exp(-1j * k * z)
 	second_Term = MM(-k, H * gamma, w) * numpy.exp(1j * k * z)
@@ -746,6 +795,7 @@ def eG(H, z, w):
 	result = first_Term + second_Term
 	return result
 
+@jit(nopython=True)
 def create_xj_vec():
 	xj = numpy.zeros(pts_total)
 	for i in range(pts_total):
@@ -757,6 +807,7 @@ def create_xj_vec():
 			xj[i] = 2 * wgap + i * del_width
 	return xj
 
+@jit(nopython=True)
 def create_xi_vec():
 	xi = numpy.zeros(pts_total)
 	for i in range(pts_total):
@@ -909,23 +960,24 @@ def JJI(H, w, Ycss):
 def main():
 	print("Start: antennaCalcs()")
 	var_time = time.time()
-	#var_Ycss = antennaCalcs()
+	var_Ycss = antennaCalcs()
 	print("Time: antennaCalcs() = ", time.time() - var_time)
 
 	print("Start: MM(1,1,1)")
 	var_time = time.time()
-	#MM(1,1,1)
+	MM(1,1,1)
 	print("Time: MM(1,1,1) = ", time.time() - var_time)
 
 	print("Start: JJI(1,1)")
 	var_time = time.time()
-	#print(JJI(appliedH,centralFreq,1))
+	print(JJI(appliedH,centralFreq,1))
 	print("Time: JJI(1,1) = ", time.time() - var_time)
-
-	cProfile.run('JJI(1,1,1)')
 
 	return 0
 
 
 if __name__ == '__main__':
-	main()
+	cProfile.run('JJI(appliedH,centralFreq,1)', 'profile_stats')
+	p = pstats.Stats('profile_stats')
+	p.strip_dirs().sort_stats('file').print_stats()
+	p.sort_stats('time').print_stats()
