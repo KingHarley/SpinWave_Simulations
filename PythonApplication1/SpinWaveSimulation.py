@@ -4,6 +4,8 @@ import pstats
 import cProfile
 import numpy
 import scipy
+from multiprocessing import Pool
+from multiprocessing import Process
 from scipy import integrate
 from numba import jit
 
@@ -789,7 +791,8 @@ def create_eG_integral(k, H, z, w):
 def eG(H, z, w):
 	upper_Bound = 100 * numpy.pi / (wsignal)
 	lower_Bound = 1
-	integral = complex_quadrature(lambda x : create_eG_integral(x, H, z, w), lower_Bound, upper_Bound, limit = 1000)[0]
+	integrand = lambda x : create_eG_integral(x, H, z, w)
+	integral = complex_quadrature(integrand, lower_Bound, upper_Bound, limit = 1000)[0]
 	first_Term = 1 / (2 * numpy.pi) * integral
 	second_Term = Gind(z, w)
 	result = first_Term + second_Term
@@ -835,20 +838,46 @@ def create_JJI_B_vecs(num_signal, num_ground, num_tot):
 	return B
 
 def create_JJI_G_vecs(H, z, w, num_max):
-	G = numpy.zeros((6,2 * num_max), dtype = complex) 
+	G = numpy.zeros((6,2 * num_max), dtype = numpy.complex128)
+
 	for i in range(num_max):
 		G[0,i] = eG(H, i * z, w)
 		G[1,i] = eG(H, -i * z, w)
-
+	
 	for i in range(2 * num_max):
 		G[2,i] = eG(H, i * z + wgap, w)
 		G[3,i] = eG(H, -(i * z + wgap), w)
-
-	for i in range(2 * num_max):
 		G[4,i] = eG(H, i * z + 2 * wgap + wsignal, w)
 		G[5,i] = eG(H, -(i * z + 2 * wgap + wsignal), w)
-
+		
 	return G
+
+#def create_JJI_G_vecs(H, z, w, num_max):
+#	G = numpy.zeros((6,2 * num_max), dtype = numpy.complex128)
+#	args_01 = numpy.zeros((2, num_max), dtype = (numpy.complex128, 3))
+#	args_2345 = numpy.zeros((4, 2 * num_max), dtype = (numpy.complex128, 3))
+
+#	for i in range(num_max):
+#		args_01[0, i] = (H, i * z, w)
+#		args_01[1, i] = (H, -i * z, w)
+	
+#	for i in range(2 * num_max):
+#		args_2345[0, i] = (H, i * z + wgap, w)
+#		args_2345[1, i] = (H, -(i * z + wgap), w)
+#		args_2345[2, i] = (H, i * z + 2 * wgap + wsignal, w)
+#		args_2345[3, i] = (H, -(i * z + 2 * wgap + wsignal), w)
+	
+#	pad = numpy.zeros(num_max, dtype = numpy.complex128)
+#	myPool = Pool(5)
+#	G01 = numpy.zeros((2,num_max), dtype = numpy.complex128)
+#	for i in range(2):
+#		G01[i,:] = myPool.starmap(eG, args_01[i,:])
+#		G[i,:] = numpy.append(G01[i,:],pad)
+#	for i in range(4):
+#		G[i+2] = myPool.starmap(eG, args_2345[i,:])
+#	myPool.close
+#	myPool.join
+#	return G
 
 def create_JJI_A_matrix(num_signal, num_ground, num_tot, G_vecs):
 	G33_pos = G_vecs[0]
@@ -1175,6 +1204,8 @@ def JJI(H, w, Ycss_w):
 	vecs_JJI_G = create_JJI_G_vecs(H + var_delH, del_width, w, pts_max)
 	print("Time: create_JJI_G_vecs = ", time.time() - var_time)
 	
+	return vecs_JJI_G
+
 	var_time = time.time()
 	matrix_JJI_A = create_JJI_A_matrix(pts_signal, pts_ground, pts_total, vecs_JJI_G)
 	print("Time: create_JJI_A_matrix = ", time.time() - var_time)
@@ -1244,7 +1275,7 @@ def main():
 
 	print("Start: JJI(1,1)")
 	var_time = time.time()
-	print(JJI(appliedH,centralFreq,1))
+	print(JJI(appliedH,centralFreq,10.485j))
 	print("Time: JJI(1,1) = ", time.time() - var_time)
 
 	return 0
@@ -1252,6 +1283,7 @@ def main():
 
 if __name__ == '__main__':
 	cProfile.run('JJI(appliedH,centralFreq, 10.485j)', 'profile_stats')
+	#cProfile.run('test_G_vecs(appliedH + del_H(centralFreq), del_width, centralFreq, pts_max)', 'profile_stats')
 	p = pstats.Stats('profile_stats')
 	p.strip_dirs().sort_stats('file').print_stats()
 	p.sort_stats('time').print_stats()
