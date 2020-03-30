@@ -4,10 +4,14 @@ import pstats
 import cProfile
 import numpy
 import scipy
+import sys
+import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from multiprocessing import Process
 from scipy import integrate
 from numba import jit
+
+numpy.set_printoptions(threshold=sys.maxsize)
 
 #Defining some variables
 centralFreq = numpy.pi * (2 * 10 * 10 ** 9)
@@ -70,6 +74,12 @@ surface_Ds1 = -1 * (0 * 2.7 * 10 ** -3 * 0.3 * 10 ** -9)
 surface_Ds2 = 0
 bulk_DD1 = 1j * surface_Ds1 / exchangeA
 bulk_DD2 = -1j * surface_Ds2 / exchangeA
+
+#Frequency range to test with Simulation
+freq_lower = 2 * numpy.pi * 4 * 10 ** 9
+freq_upper = 2 * numpy.pi * 14 * 10 ** 9
+plot_pts_num = 2
+freq_step = (freq_upper - freq_lower) / plot_pts_num
 
 # Function for complex integration, found at https://stackoverflow.com/questions/5965583/use-scipy-integrate-quad-to-integrate-complex-numbers
 def complex_quadrature(func, lower_bound, upper_bound, **kwargs):
@@ -868,7 +878,7 @@ def create_JJI_G_vecs(H, z, w, num_max):
 #		args_2345[3, i] = (H, -(i * z + 2 * wgap + wsignal), w)
 	
 #	pad = numpy.zeros(num_max, dtype = numpy.complex128)
-#	myPool = Pool(5)
+#	myPool = Pool(2)
 #	G01 = numpy.zeros((2,num_max), dtype = numpy.complex128)
 #	for i in range(2):
 #		G01[i,:] = myPool.starmap(eG, args_01[i,:])
@@ -1095,6 +1105,37 @@ def create_JJI_B2_vec(E):
 		B2[i+pts_ground] = E[0,0]
 	return B2
 
+def create_JJI_Gout_element(i, j, H, delH, xj, xi, w):
+	result = 0
+	if i == 0:
+		result = eG(H + delH, xi[0] - xj[j], w)
+	elif j == 0:
+		result = eG(H + delH, xi[i] - xj[0], w)
+	elif abs((xi[i] - xj[j]) - (xi[i-1] - xj[j-1])) >= (del_width / 10):
+		result = eG(H + delH, xi[i] - xj[j], w)
+	return result
+
+#def create_JJI_Gout_matrix(H, delH, xj, xi, w):
+#	Gout = numpy.zeros((pts_total, pts_total), dtype = numpy.complex128)
+#	xi_len = len(xi)
+#	xj_len = len(xj)
+#	dt = numpy.dtype([('i',numpy.int64),('j', numpy.int64),('H', numpy.complex128),('delH', numpy.complex128),('xj', numpy.complex128, xj_len), ('xi', numpy.complex128, xi_len), ('w', numpy.complex128)])
+#	args = numpy.zeros((pts_total, pts_total), dtype = dt)
+#	for i in range(pts_total):
+#		for j in range(pts_total):
+#			args[i,j] =  (i, j, H, delH, xj, xi, w)
+	
+#	myPool = Pool(2)
+#	for i in range(pts_total):
+#		Gout[:,i] = myPool.starmap(create_JJI_Gout_element, args[:,i])
+#	myPool.close
+#	myPool.join
+#	for i in range(1, pts_total):
+#		for j in range(1, pts_total):
+#			if abs((xi[i] - xj[j]) - (xi[i-1] - xj[j-1])) < (del_width / 10):
+#				Gout[i,j] = Gout[i-1, j-1]
+#	return Gout
+
 def create_JJI_Gout_matrix(H, delH, xj, xi, w):
 	Gout = numpy.zeros((pts_total, pts_total), dtype = numpy.complex128)
 	for i in range(pts_total):
@@ -1194,30 +1235,31 @@ def create_JJI_Z_vec(JJI_gamma, E, Iout, Vout, ZL_one, ZL_two, j4average, w, Iav
 def JJI(H, w, Ycss_w):
 	var_time = time.time()
 	var_delH = del_H(w)
-	print("Time: del_H(w) = ", time.time() - var_time)
+	#print("Time: del_H(w) = ", time.time() - var_time)
 
 	var_time = time.time()
 	vecs_JJI_B = create_JJI_B_vecs(pts_signal, pts_ground, pts_total)
-	print("Time: create_JJI_B_vecs = ", time.time() - var_time)
+	#print("Time: create_JJI_B_vecs = ", time.time() - var_time)
 
 	var_time = time.time()
 	vecs_JJI_G = create_JJI_G_vecs(H + var_delH, del_width, w, pts_max)
-	print("Time: create_JJI_G_vecs = ", time.time() - var_time)
+	#print("Time: create_JJI_G_vecs = ", time.time() - var_time)
 	
-	return vecs_JJI_G
+	#print(vecs_JJI_G)
+	#return vecs_JJI_G
 
 	var_time = time.time()
 	matrix_JJI_A = create_JJI_A_matrix(pts_signal, pts_ground, pts_total, vecs_JJI_G)
-	print("Time: create_JJI_A_matrix = ", time.time() - var_time)
+	#print("Time: create_JJI_A_matrix = ", time.time() - var_time)
 
 	var_time = time.time()
 	vecs_JJI_ww = create_JJI_ww_vecs(matrix_JJI_A, vecs_JJI_B)
-	print("Time: create_JJI_ww_vecs = ", time.time() - var_time)
+	#print("Time: create_JJI_ww_vecs = ", time.time() - var_time)
 
 	var_time = time.time()
 	matrix_JJI_I = create_JJI_I_matrix(vecs_JJI_ww, pts_signal, pts_ground, pts_total)
-	print("Time: create_JJI_I_matrix = ", time.time() - var_time)
-	print(matrix_JJI_I)
+	#print("Time: create_JJI_I_matrix = ", time.time() - var_time)
+	#print(matrix_JJI_I)
 	#return matrix_JJI_I
 
 	matrix_JJI_ZZ = numpy.linalg.inv(numpy.transpose(matrix_JJI_I)) / del_width
@@ -1225,13 +1267,13 @@ def JJI(H, w, Ycss_w):
 
 	var_time = time.time()
 	matrix_JJI_AL = create_JJI_AL_matrix(var_Y11, matrix_JJI_ZZ)
-	print("Time: create_JJI_AL_matrix = ", time.time() - var_time)
-	print(matrix_JJI_AL)
+	#print("Time: create_JJI_AL_matrix = ", time.time() - var_time)
+	#print(matrix_JJI_AL)
 
 	vec_eigAL = numpy.linalg.eig(matrix_JJI_AL)[0]
 	vec_eigVecAL = numpy.linalg.eig(matrix_JJI_AL)[1]
-	print(vec_eigAL)
-	print(vec_eigVecAL)
+	#print(vec_eigAL)
+	#print(vec_eigVecAL)
 
 	vec_JJI_bn = create_JJI_bn_vec(vec_eigAL, vec_eigVecAL)
 	var_JJI_ZL_one = create_JJI_ZL_one_var(vec_eigAL, vec_eigVecAL, vec_JJI_bn)
@@ -1248,6 +1290,8 @@ def JJI(H, w, Ycss_w):
 	vec_JJI_xi = create_xi_vec()
 	vec_JJI_xj = create_xj_vec()
 	matrix_JJI_Gout = create_JJI_Gout_matrix(H, var_delH, vec_JJI_xj, vec_JJI_xi, w)
+	#return matrix_JJI_Gout
+
 	vec_JJI_E2 = create_JJI_E2_vec(matrix_JJI_Gout, vec_JJI_ww2)
 	matrix_JJI_Diag = create_JJI_Diag_matrix(vec_eigAL)
 	vec_JJI_B0 = create_JJI_B0_vec(vec_eigVecAL, matrix_JJI_Diag, vec_JJI_E2)
@@ -1258,32 +1302,72 @@ def JJI(H, w, Ycss_w):
 	var_JJI_Vout = create_JJI_Vout_var(vec_eigAL, vec_eigVecAL, var_JJI_b, vec_JJI_B0)
 	vec_JJI_Z = create_JJI_Z_vec(var_JJI_gamma, vec_JJI_E2, vec_JJI_Iout, var_JJI_Vout, var_JJI_ZL_one, var_JJI_ZL_two, var_JJI_J4average, w, vec_JJI_Iaverage, vec_JJI_Ic)
 
+	print("Frequency: ", w)
 	print("vec_JJI_Z: ")
 	print(vec_JJI_Z)
 	return vec_JJI_Z
 
+def create_main_freq_vec():
+	result = numpy.zeros(plot_pts_num, numpy.float64)
+	for i in range(plot_pts_num):
+		result[i] = freq_lower + i * freq_step
+	return result
+
+def create_plots(result_matrix, frequencies):
+	vec_s21 = numpy.zeros(len(frequencies), dtype = numpy.complex128)
+	for i in range(len(frequencies)):
+		vec_s21[i] = result_matrix[i][7]
+	plt.plot(numpy.abs(vec_s21), frequencies, 'ro')
+	plt.show
+	return 0
+
 def main():
+	len_JJI_Z_vec = 12
 	print("Start: antennaCalcs()")
 	var_time = time.time()
-	#var_Ycss = antennaCalcs() * centralFreq
+	var_Ycss = antennaCalcs() * centralFreq
 	print("Time: antennaCalcs() = ", time.time() - var_time)
 
-	print("Start: MM(1,1,1)")
-	var_time = time.time()
+	#print("Start: MM(1,1,1)")
+	#var_time = time.time()
 	#MM(1,1,1)
-	print("Time: MM(1,1,1) = ", time.time() - var_time)
+	#print("Time: MM(1,1,1) = ", time.time() - var_time)
 
-	print("Start: JJI(1,1)")
-	var_time = time.time()
-	print(JJI(appliedH,centralFreq,10.485j))
-	print("Time: JJI(1,1) = ", time.time() - var_time)
+	#print("Start: JJI(1,1)")
+	#var_time = time.time()
+	#print(JJI(appliedH,centralFreq,10.485j))
+	#print("Time: JJI(1,1) = ", time.time() - var_time)
 
+	vec_frequencies = create_main_freq_vec()
+	print("Frequencies: ", vec_frequencies)
+	result_matrix = numpy.zeros((len_JJI_Z_vec, plot_pts_num), dtype = numpy.complex128)
+	#for i in range(plot_pts_num):
+	#	result_matrix[:,i] = JJI(appliedH, vec_frequencies[i], var_Ycss)
+	#	print("Finished: ", i)
+
+	vec_arguments = numpy.zeros(plot_pts_num, dtype = (numpy.complex128, 3))
+	for i in range(plot_pts_num):
+		vec_arguments[i] = (appliedH, vec_frequencies[i], var_Ycss)
+	myPool = Pool(4)
+	result_matrix =myPool.starmap(JJI, vec_arguments)
+	myPool.close
+	myPool.join
+	print(result_matrix)
+	print("Result[0][1]: ", result_matrix[0][1])
+	print("Result[0]: ", result_matrix[0])
+	print("Result[:][0]: ", result_matrix[:][0])
+	create_plots(result_matrix, vec_frequencies)
 	return 0
 
 
 if __name__ == '__main__':
-	cProfile.run('JJI(appliedH,centralFreq, 10.485j)', 'profile_stats')
+	#cProfile.run('JJI(appliedH,centralFreq, 10.485j)', 'profile_stats')
+	#xi = create_xi_vec()
+	#xj = create_xj_vec()
+	#cProfile.run('create_JJI_Gout_matrix(appliedH, del_H(centralFreq), xj, xi, centralFreq)', 'profile_stats')
 	#cProfile.run('test_G_vecs(appliedH + del_H(centralFreq), del_width, centralFreq, pts_max)', 'profile_stats')
+	cProfile.run('main()', 'profile_stats')
 	p = pstats.Stats('profile_stats')
 	p.strip_dirs().sort_stats('file').print_stats()
 	p.sort_stats('time').print_stats()
+	#main()
