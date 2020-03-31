@@ -77,8 +77,8 @@ bulk_DD2 = -1j * surface_Ds2 / exchangeA
 
 #Frequency range to test with Simulation
 freq_lower = 2 * numpy.pi * 4 * 10 ** 9
-freq_upper = 2 * numpy.pi * 14 * 10 ** 9
-plot_pts_num = 2
+freq_upper = 2 * numpy.pi * 16 * 10 ** 9
+plot_pts_num = 50
 freq_step = (freq_upper - freq_lower) / plot_pts_num
 
 # Function for complex integration, found at https://stackoverflow.com/questions/5965583/use-scipy-integrate-quad-to-integrate-complex-numbers
@@ -1317,8 +1317,17 @@ def create_plots(result_matrix, frequencies):
 	vec_s21 = numpy.zeros(len(frequencies), dtype = numpy.complex128)
 	for i in range(len(frequencies)):
 		vec_s21[i] = result_matrix[i][7]
-	plt.plot(numpy.abs(vec_s21), frequencies, 'ro')
-	plt.show
+	plt.plot(frequencies / (2 * numpy.pi), numpy.abs(vec_s21), 'ro')
+	plt.show()
+	return 0
+
+def create_savefile(result_matrix, frequencies):
+	matrix = numpy.zeros((len(frequencies), 3), dtype = numpy.float64)
+	for i in range(len(frequencies)):
+		matrix[i,0] = numpy.real(result_matrix[i][7])
+		matrix[i,1] = numpy.imag(result_matrix[i][7])
+		matrix[i,2] = frequencies[i] / (2 * numpy.pi)
+	numpy.savetxt('C:/users/22159666/Desktop/test.csv', matrix, delimiter=',')
 	return 0
 
 def main():
@@ -1356,7 +1365,10 @@ def main():
 	print("Result[0][1]: ", result_matrix[0][1])
 	print("Result[0]: ", result_matrix[0])
 	print("Result[:][0]: ", result_matrix[:][0])
+	create_savefile(result_matrix, vec_frequencies)
 	create_plots(result_matrix, vec_frequencies)
+	create_savefile(result_matrix, vec_frequencies)
+	#numpy.savetxt('C:/users/22159666/Desktop/test.csv', result_matrix, delimiter=',')
 	return 0
 
 
