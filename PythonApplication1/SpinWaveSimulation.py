@@ -40,12 +40,6 @@ pts_total = int(numpy.ceil((wsignal + 2 * wground) / del_width))
 pts_signal = pts_total - 2 * pts_ground
 pts_max = max(pts_signal, pts_ground)
 
-#pts_signal = 52
-#del_width = wsignal / pts_signal
-#pts_total = numpy.ceil((wsignal + 2 * wground) / del_width)
-#pts_ground = (pts_total - pts_signal) / 2
-#pts_max = max(pts_signal, pts_ground)
-
 #Metal Characteristics
 epsilonSi = 3.8
 sigmaFM = 1.7 * 10 ** 7
@@ -78,7 +72,7 @@ bulk_DD2 = -1j * surface_Ds2 / exchangeA
 #Frequency range to test with Simulation
 freq_lower = 2 * numpy.pi * 4 * 10 ** 9
 freq_upper = 2 * numpy.pi * 16 * 10 ** 9
-plot_pts_num = 50
+plot_pts_num = 2
 freq_step = (freq_upper - freq_lower) / plot_pts_num
 
 # Function for complex integration, found at https://stackoverflow.com/questions/5965583/use-scipy-integrate-quad-to-integrate-complex-numbers
@@ -1307,7 +1301,7 @@ def JJI(H, w, Ycss_w):
 	print(vec_JJI_Z)
 	return vec_JJI_Z
 
-def create_main_freq_vec():
+def create_main_freq_vec(freq_lower, freq_step, plot_pts_num):
 	result = numpy.zeros(plot_pts_num, numpy.float64)
 	for i in range(plot_pts_num):
 		result[i] = freq_lower + i * freq_step
@@ -1321,14 +1315,39 @@ def create_plots(result_matrix, frequencies):
 	plt.show()
 	return 0
 
-def create_savefile(result_matrix, frequencies):
-	matrix = numpy.zeros((len(frequencies), 3), dtype = numpy.float64)
+def create_savefile(filename, result_matrix, frequencies):
+	matrix = numpy.zeros((len(frequencies), 5), dtype = numpy.float64)
 	for i in range(len(frequencies)):
-		matrix[i,0] = numpy.real(result_matrix[i][7])
-		matrix[i,1] = numpy.imag(result_matrix[i][7])
-		matrix[i,2] = frequencies[i] / (2 * numpy.pi)
-	numpy.savetxt('C:/users/22159666/Desktop/test.csv', matrix, delimiter=',')
+		matrix[i,0] = frequencies[i] / (2 * numpy.pi)
+		matrix[i,1] = numpy.real(result_matrix[i][7])
+		matrix[i,2] = numpy.imag(result_matrix[i][7])
+		matrix[i,3] = numpy.real(result_matrix[i][0])
+		matrix[i,4] = numpy.imag(result_matrix[i][0])
+	numpy.savetxt(filename, matrix, header = "Frequency, Real(S21), Imag(S21), Real(S11), Imag(S11)", delimiter=',')
 	return 0
+
+def simulate(start_freq, end_freq, points, filename):
+	vec_frequencies = create_main_freq_vec(start_freq, (end_freq-start_freq) / points, points)
+	print("Frequencies: ", vec_frequencies)
+	result_matrix = numpy.zeros((len_JJI_Z_vec, points), dtype = numpy.complex128)
+
+	vec_arguments = numpy.zeros(points, dtype = (numpy.complex128, 3))
+	for i in range(points):
+		vec_arguments[i] = (appliedH, vec_frequencies[i], var_Ycss)
+	myPool = Pool(4)
+	result_matrix = myPool.starmap(JJI, vec_arguments)
+	myPool.close
+	myPool.join
+	print(result_matrix)
+	print("Result[0][1]: ", result_matrix[0][1])
+	print("Result[0]: ", result_matrix[0])
+	print("Result[:][0]: ", result_matrix[:][0])
+	create_savefile(result_matrix, vec_frequencies)
+	#create_plots(result_matrix, vec_frequencies)
+	create_savefile(filename, result_matrix, vec_frequencies)
+	return 0
+
+
 
 def main():
 	len_JJI_Z_vec = 12
@@ -1347,30 +1366,7 @@ def main():
 	#print(JJI(appliedH,centralFreq,10.485j))
 	#print("Time: JJI(1,1) = ", time.time() - var_time)
 
-	vec_frequencies = create_main_freq_vec()
-	print("Frequencies: ", vec_frequencies)
-	result_matrix = numpy.zeros((len_JJI_Z_vec, plot_pts_num), dtype = numpy.complex128)
-	#for i in range(plot_pts_num):
-	#	result_matrix[:,i] = JJI(appliedH, vec_frequencies[i], var_Ycss)
-	#	print("Finished: ", i)
-
-	vec_arguments = numpy.zeros(plot_pts_num, dtype = (numpy.complex128, 3))
-	for i in range(plot_pts_num):
-		vec_arguments[i] = (appliedH, vec_frequencies[i], var_Ycss)
-	myPool = Pool(4)
-	result_matrix =myPool.starmap(JJI, vec_arguments)
-	myPool.close
-	myPool.join
-	print(result_matrix)
-	print("Result[0][1]: ", result_matrix[0][1])
-	print("Result[0]: ", result_matrix[0])
-	print("Result[:][0]: ", result_matrix[:][0])
-	create_savefile(result_matrix, vec_frequencies)
-	create_plots(result_matrix, vec_frequencies)
-	create_savefile(result_matrix, vec_frequencies)
-	#numpy.savetxt('C:/users/22159666/Desktop/test.csv', result_matrix, delimiter=',')
 	return 0
-
 
 if __name__ == '__main__':
 	#cProfile.run('JJI(appliedH,centralFreq, 10.485j)', 'profile_stats')
@@ -1378,8 +1374,8 @@ if __name__ == '__main__':
 	#xj = create_xj_vec()
 	#cProfile.run('create_JJI_Gout_matrix(appliedH, del_H(centralFreq), xj, xi, centralFreq)', 'profile_stats')
 	#cProfile.run('test_G_vecs(appliedH + del_H(centralFreq), del_width, centralFreq, pts_max)', 'profile_stats')
-	cProfile.run('main()', 'profile_stats')
-	p = pstats.Stats('profile_stats')
-	p.strip_dirs().sort_stats('file').print_stats()
-	p.sort_stats('time').print_stats()
-	#main()
+	#cProfile.run('main()', 'profile_stats')
+	#p = pstats.Stats('profile_stats')
+	#p.strip_dirs().sort_stats('file').print_stats()
+	#p.sort_stats('time').print_stats()
+	main()
