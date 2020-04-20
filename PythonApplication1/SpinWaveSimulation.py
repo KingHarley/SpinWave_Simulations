@@ -5,6 +5,7 @@ import cProfile
 import numpy
 import scipy
 import sys
+import os
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from multiprocessing import Process
@@ -13,18 +14,11 @@ from numba import jit
 
 numpy.set_printoptions(threshold=sys.maxsize)
 
-#Defining some variables
-centralFreq = numpy.pi * (2 * 10 * 10 ** 9)
+len_JJI_Z_vec = 12
+
+#Defining some constants
 epsZero = 8.85 * 10 ** -12
 muZero = 4 * numpy.pi * 10 ** -7
-appliedH = 228 * 79.57747
-gamma = 2 * numpy.pi * 3 * 10 ** 10 * 4 * numpy.pi * 10 ** -7
-satMs = 16500 / (10 ** 4 * muZero) * numpy.sign(appliedH)
-gilDamping = 0.008
-omegaH = gamma * appliedH
-omegaM = gamma * satMs
-exchangeA = 2 * 10 ** -7 * 10 ** -4
-alphaExchange = 2 * exchangeA / (muZero * satMs ** 2)
 
 #Antenna Geometry
 wsignal = 648 * 10 ** -9
@@ -55,25 +49,124 @@ var_R1 = resis_Al / (thicknessAl * wsignal)
 var_R2 = resis_Al / (thicknessAl * wground)
 var_zc = 50
 
-#Anisotropy and DMI constants
-surface_Ks1 = 0
-surface_Ks2 = 0
-applied_Hu1 = 2 * surface_Ks1 / (muZero * abs(satMs))
-applied_Hu2 = 2 * surface_Ks2 / (muZero * abs(satMs))
-pinning_d1y = -1 * applied_Hu2 * muZero * abs(satMs) / (2 * exchangeA)
-pinning_d2y = -1 * applied_Hu1 * muZero * abs(satMs) / (2 * exchangeA)
-pinning_d1x = 0
-pinning_d2x = 0
-surface_Ds1 = -1 * (0 * 2.7 * 10 ** -3 * 0.3 * 10 ** -9)
-surface_Ds2 = 0
-bulk_DD1 = 1j * surface_Ds1 / exchangeA
-bulk_DD2 = -1j * surface_Ds2 / exchangeA
-
 #Frequency range to test with Simulation
 freq_lower = 2 * numpy.pi * 4 * 10 ** 9
 freq_upper = 2 * numpy.pi * 16 * 10 ** 9
 plot_pts_num = 2
 freq_step = (freq_upper - freq_lower) / plot_pts_num
+
+#Independent Variables
+centralFreq = numpy.pi * (2 * 10 * 10 ** 9)
+appliedH = 228 * 79.57747
+gamma = 2 * numpy.pi * 3 * 10 ** 10 * 4 * numpy.pi * 10 ** -7
+ampMs = (16500 / (10 ** 4 * muZero))
+gilDamping = 0.008
+exchangeA = 2 * 10 ** -7 * 10 ** -4
+surface_Ks1 = 0
+surface_Ks2 = 0
+surface_Ds1 = -1 * (0 * 2.7 * 10 ** -3 * 0.3 * 10 ** -9)
+surface_Ds2 = 0
+
+#Dependent Variables
+satMs =  ampMs  * numpy.sign(appliedH) 
+omegaH =  gamma  *  appliedH  
+omegaM =  gamma  *  ampMs  * numpy.sign( appliedH ) 
+alphaExchange = 2 *  exchangeA  / (muZero * ( ampMs  * numpy.sign( appliedH )) ** 2) 
+applied_Hu1 = 2 *  surface_Ks1  / (muZero * abs( ampMs  * numpy.sign( appliedH ))) 
+applied_Hu2 = 2 *  surface_Ks2  / (muZero * abs( ampMs  * numpy.sign( appliedH ))) 
+pinning_d1y = -1 * (2 *  surface_Ks2  / (muZero * abs( ampMs  * numpy.sign( appliedH )))) * muZero * abs( ampMs  * numpy.sign( appliedH )) / (2 *  exchangeA ) 
+pinning_d2y = -1 * (2 *  surface_Ks1  / (muZero * abs( ampMs  * numpy.sign( appliedH )))) * muZero * abs( ampMs  * numpy.sign( appliedH )) / (2 *  exchangeA ) 
+pinning_d1x = 0 
+pinning_d2x = 0 
+bulk_DD1 = 1j *  surface_Ds1  /  exchangeA  
+bulk_DD2 = -1j *  surface_Ds2  /  exchangeA 
+
+ind_Variables = {
+	"centralFreq": numpy.pi * (2 * 10 * 10 ** 9),
+	"appliedH": 228 * 79.57747,
+	"gamma": 2 * numpy.pi * 3 * 10 ** 10 * 4 * numpy.pi * 10 ** -7,
+	"ampMs": (16500 / (10 ** 4 * muZero)),
+	"gilDamping": 0.008,
+	"exchangeA": 2 * 10 ** -7 * 10 ** -4,
+	"surface_Ks1": 0,
+	"surface_Ks2": 0,
+	"surface_Ds1": -1 * (0 * 2.7 * 10 ** -3 * 0.3 * 10 ** -9),
+	"surface_Ds2": 0
+	}
+
+#dep_Variables = {
+#	"satMs": ampMs * numpy.sign(appliedH),
+#	"omegaH": gamma * appliedH,
+#	"omegaM": gamma * ampMs * numpy.sign(appliedH),
+#	"alphaExchange": 2 * ind_Variables["exchangeA"] / (muZero * (ampMs * numpy.sign(appliedH)) ** 2),
+#	"applied_Hu1": 2 * ind_Variables["surface_Ks1"] / (muZero * abs(ampMs * numpy.sign(appliedH))),
+#	"applied_Hu2": 2 * ind_Variables["surface_Ks2"] / (muZero * abs(ampMs * numpy.sign(appliedH))),
+#	"pinning_d1y": -1 * (2 * ind_Variables["surface_Ks2"] / (muZero * abs(ampMs * numpy.sign(appliedH)))) * muZero * abs(ampMs * numpy.sign(appliedH)) / (2 * ind_Variables["exchangeA"]),
+#	"pinning_d2y": -1 * (2 * ind_Variables["surface_Ks1"] / (muZero * abs(ampMs * numpy.sign(appliedH)))) * muZero * abs(ampMs * numpy.sign(appliedH)) / (2 * ind_Variables["exchangeA"]),
+#	"pinning_d1x": 0,
+#	"pinning_d2x": 0,
+#	"bulk_DD1": 1j * ind_Variables["surface_Ds1"] / ind_Variables["exchangeA"],
+#	"bulk_DD2": -1j * ind_Variables["surface_Ds2"] / ind_Variables["exchangeA"]
+#	}
+
+def update_global_vars(indV):
+	global centralFreq
+	global appliedH
+	global gamma
+	global ampMs
+	global gilDamping
+	global exchangeA
+	global surface_Ks1
+	global surface_Ks2
+	global surface_Ds1
+	global surface_Ds2
+	global satMs
+	global omegaH
+	global omegaM
+	global alphaExchange
+	global applied_Hu1
+	global applied_Hu2
+	global pinning_d1y
+	global pinning_d2y
+	global pinning_d1x
+	global pinning_d2x
+	global bulk_DD1
+	global bulk_DD2
+
+	#Independent variables
+	centralFreq = indV["centralFreq"]
+	appliedH = indV["appliedH"]
+	gamma = indV["gamma"]
+	ampMs = indV["ampMs"]
+	gilDamping = indV["gilDamping"]
+	exchangeA = indV["exchangeA"]
+	surface_Ks1 = indV["surface_Ks1"]
+	surface_Ks2 = indV["surface_Ks2"]
+	surface_Ds1 = indV["surface_Ds1"]
+	surface_Ds2 = indV["surface_Ds2"]
+
+	#Dependent Variables
+	satMs = ampMs * numpy.sign(appliedH)
+	omegaH= gamma * appliedH
+	omegaM= gamma * satMs
+	alphaExchange= 2 * exchangeA / (muZero * (satMs) ** 2)
+	applied_Hu1= 2 * surface_Ks1 / (muZero * abs(satMs))
+	applied_Hu2= 2 * surface_Ks2 / (muZero * abs(satMs))
+	pinning_d1y= -1 * (applied_Hu2) * muZero * abs(satMs) / (2 * exchangeA)
+	pinning_d2y= -1 * (applied_Hu1) * muZero * abs(satMs) / (2 * exchangeA)
+	pinning_d1x= 0
+	pinning_d2x= 0
+	bulk_DD1= 1j * surface_Ds1 / exchangeA
+	bulk_DD2= -1j * surface_Ds2 / exchangeA
+	return 0
+
+def update_dict_vars(indV, **kwargs):
+	temp = indV
+	for key in kwargs:
+		if key in temp:
+			temp[key] = kwargs[key]
+	update_global_vars(temp)
+	return 0
 
 # Function for complex integration, found at https://stackoverflow.com/questions/5965583/use-scipy-integrate-quad-to-integrate-complex-numbers
 def complex_quadrature(func, lower_bound, upper_bound, **kwargs):
@@ -89,7 +182,6 @@ def Z0(kk, kks, kkl, kkls):
 	numerator = 60 * numpy.pi
 	denominator = numpy.sqrt(epsilonEff(kk, kks, kkl, kkls)) * ((kellip(kk) / kellip(kks)) + (kellip(kkl) / kellip(kkls)))
 	return (numerator / denominator)
-
 
 def kellip(x):
 	#print("x = ", x)
@@ -1326,14 +1418,14 @@ def create_savefile(filename, result_matrix, frequencies):
 	numpy.savetxt(filename, matrix, header = "Frequency, Real(S21), Imag(S21), Real(S11), Imag(S11)", delimiter=',')
 	return 0
 
-def simulate(start_freq, end_freq, points, filename):
+def simulate(Ycss, start_freq, end_freq, points, filename):
 	vec_frequencies = create_main_freq_vec(start_freq, (end_freq-start_freq) / points, points)
 	print("Frequencies: ", vec_frequencies)
 	result_matrix = numpy.zeros((len_JJI_Z_vec, points), dtype = numpy.complex128)
 
 	vec_arguments = numpy.zeros(points, dtype = (numpy.complex128, 3))
 	for i in range(points):
-		vec_arguments[i] = (appliedH, vec_frequencies[i], var_Ycss)
+		vec_arguments[i] = (appliedH, vec_frequencies[i], Ycss)
 	myPool = Pool(4)
 	result_matrix = myPool.starmap(JJI, vec_arguments)
 	myPool.close
@@ -1342,29 +1434,31 @@ def simulate(start_freq, end_freq, points, filename):
 	print("Result[0][1]: ", result_matrix[0][1])
 	print("Result[0]: ", result_matrix[0])
 	print("Result[:][0]: ", result_matrix[:][0])
-	create_savefile(result_matrix, vec_frequencies)
 	#create_plots(result_matrix, vec_frequencies)
 	create_savefile(filename, result_matrix, vec_frequencies)
 	return 0
 
+def sim_varying_args(dir, Ycss, lowB, upB, pts, arg):
+	hfield = lowB
+	step = (upB - lowB)/pts
+	for i in range(pts):
+		name = os.path.join(dir, arg + str(i) + ".csv")
+		arg_dict = {arg:hfield}
+		update_dict_vars(ind_Variables, **arg_dict)
+		simulate(Ycss, freq_lower, freq_upper, plot_pts_num, name)
+		hfield += step
+	return 0
 
 
 def main():
-	len_JJI_Z_vec = 12
+	directory = 'C:/Users/22159666/LocalData/Local Documents/Programming/Projects/Python/SpinWave_Simulations/Python Simulation Results'
 	print("Start: antennaCalcs()")
 	var_time = time.time()
-	var_Ycss = antennaCalcs() * centralFreq
+	#var_Ycss = antennaCalcs() * centralFreq
 	print("Time: antennaCalcs() = ", time.time() - var_time)
-
-	#print("Start: MM(1,1,1)")
-	#var_time = time.time()
-	#MM(1,1,1)
-	#print("Time: MM(1,1,1) = ", time.time() - var_time)
-
-	#print("Start: JJI(1,1)")
-	#var_time = time.time()
-	#print(JJI(appliedH,centralFreq,10.485j))
-	#print("Time: JJI(1,1) = ", time.time() - var_time)
+	var_Ycss = 10j
+	
+	sim_varying_args(directory, var_Ycss, 100 * 79.57747, 500 * 79.57747, 2, 'appliedH')
 
 	return 0
 
