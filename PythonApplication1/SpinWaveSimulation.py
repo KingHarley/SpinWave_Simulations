@@ -235,13 +235,16 @@ def update_dict_vars(indV, *args):
 
 # Function for complex integration, found at https://stackoverflow.com/questions/5965583/use-scipy-integrate-quad-to-integrate-complex-numbers
 def complex_quadrature(func, lower_bound, upper_bound, **kwargs):
-    def real_func(x):
-        return scipy.real(func(x))
-    def imag_func(x):
-        return scipy.imag(func(x))
+    def real_func(*args):
+        return numpy.real(func(*args))
+    def imag_func(*args):
+        return numpy.imag(func(*args))
     real_integral = integrate.quad(real_func, lower_bound, upper_bound, **kwargs)
     imag_integral = integrate.quad(imag_func, lower_bound, upper_bound, **kwargs)
-    return (real_integral[0] + 1j*imag_integral[0], real_integral[1:], imag_integral[1:])
+    return real_integral[0] + 1j*imag_integral[0]
+
+
+
 
 def Z0(kk, kks, kkl, kkls):
 	numerator = 60 * numpy.pi
@@ -300,12 +303,14 @@ def Ci(x):
 	result = -1 * (Ei(x * 1j) + Ei(-1j * x)) / 2
 	return result
 
+@jit(nopython=True)
 def gg_eval(k):
 	if abs(k) < 40 / thicknessSi:
 		return (-1 * numpy.sinh(thicknessSi * abs(k)) / (epsZero * abs(k) * (numpy.sinh(thicknessSi * abs(k)) + epsilonSi * numpy.cosh(thicknessSi * abs(k)))))
 	else:
 		return (-1 / (epsZero * abs(k) * (1 + epsilonSi))) 
 
+@jit(nopython=True)
 def Gsi_integrand(x, t):
 	return numpy.cos(t*x) * gg_eval(x)
 
@@ -316,6 +321,7 @@ def Gsi(k):
 	result = ((integrated[0] + Ci(40 * k / thicknessSi) / (epsZero * (1 + epsilonSi))) / numpy.pi)
 	return result.real
 
+#@jit(nopython=True)
 def Qp(numsignal, numground, meshpts, nummax, deltaW):
 	b = numpy.zeros(meshpts)
 	a = numpy.zeros((meshpts, meshpts))
@@ -470,7 +476,6 @@ def SLh(K4, k):
 	else:
 		return  k * 1j / K4
 
-cmy_denom = numpy.zeros(10, dtype = complex)
 @jit(nopython=True)
 def Cmy(Q, k, wH, w):
 	numerator = -1 * (omegaM * Q * k - w * Q ** 2 + w * k ** 2 + w ** 2 * sigmaFM * muZero * 1j)
@@ -486,22 +491,23 @@ def Cmy(Q, k, wH, w):
 	#cmy_denom[8] = Q ** 2 * omegaM * 1j
 	#cmy_denom[9] = Q ** 2 * wH * 1j
 
-	cmy_denom_0 = w * sigmaFM * wH * muZero
-	cmy_denom_1 = -1 * Q ** 4 * alphaExchange * omegaM * 1j
-	cmy_denom_2 = w * sigmaFM * muZero * omegaM
-	cmy_denom_3 = -1 * Q ** 2 * alphaExchange * w * sigmaFM * muZero * omegaM
-	cmy_denom_4 = alphaExchange * w * sigmaFM * k ** 2 * muZero * omegaM
-	cmy_denom_5 = -1 * k ** 2 * wH * 1j
-	cmy_denom_6 = -1 * alphaExchange * k ** 4 * omegaM * 1j
-	cmy_denom_7 = 2 * Q ** 2 * alphaExchange * k ** 2 * omegaM * 1j
-	cmy_denom_8 = Q ** 2 * omegaM * 1j
-	cmy_denom_9 = Q ** 2 * wH * 1j
-	denominator = cmy_denom_0 + cmy_denom_1 + cmy_denom_2 + cmy_denom_3 + cmy_denom_4 + cmy_denom_5 + cmy_denom_6 + cmy_denom_7 + cmy_denom_8 + cmy_denom_9
+	#cmy_denom_0 = w * sigmaFM * wH * muZero
+	#cmy_denom_1 = -1 * Q ** 4 * alphaExchange * omegaM * 1j
+	#cmy_denom_2 = w * sigmaFM * muZero * omegaM
+	#cmy_denom_3 = -1 * Q ** 2 * alphaExchange * w * sigmaFM * muZero * omegaM
+	#cmy_denom_4 = alphaExchange * w * sigmaFM * k ** 2 * muZero * omegaM
+	#cmy_denom_5 = -1 * k ** 2 * wH * 1j
+	#cmy_denom_6 = -1 * alphaExchange * k ** 4 * omegaM * 1j
+	#cmy_denom_7 = 2 * Q ** 2 * alphaExchange * k ** 2 * omegaM * 1j
+	#cmy_denom_8 = Q ** 2 * omegaM * 1j
+	#cmy_denom_9 = Q ** 2 * wH * 1j
+	#denominator = cmy_denom_0 + cmy_denom_1 + cmy_denom_2 + cmy_denom_3 + cmy_denom_4 + cmy_denom_5 + cmy_denom_6 + cmy_denom_7 + cmy_denom_8 + cmy_denom_9
+	denominator = w * sigmaFM * wH * muZero + -1 * Q ** 4 * alphaExchange * omegaM * 1j + w * sigmaFM * muZero * omegaM + -1 * Q ** 2 * alphaExchange * w * sigmaFM * muZero * omegaM + alphaExchange * w * sigmaFM * k ** 2 * muZero * omegaM + -1 * k ** 2 * wH * 1j + -1 * alphaExchange * k ** 4 * omegaM * 1j + 2 * Q ** 2 * alphaExchange * k ** 2 * omegaM * 1j + Q ** 2 * omegaM * 1j + Q ** 2 * wH * 1j
 	#denominator = cmy_denom.sum()
 	result = numerator / denominator
 	return result
 
-@jit(nopython = True)
+@jit(nopython=True)
 def Chx(Q, k, wH, w):
 	#num = numpy.zeros(19, dtype = complex)
 	#num[0] = Q ** 3 * w * k * 1j
@@ -577,7 +583,7 @@ def Chx(Q, k, wH, w):
 
 	return numerator / denominator
 
-@jit(nopython=True)
+#@jit(nopython=True)
 def Chy(Q, k, wH, w):
 	num = numpy.zeros(34, dtype = numpy.complex128)
 	num[0] = Q ** 5 * alphaExchange ** 2 * w * sigmaFM * k * muZero * omegaM ** 2
@@ -793,7 +799,7 @@ def create_Chx_vec(Q1, Q2, Q3, k, wH, w):
 	#return (temp_Chx_0, temp_Chx_1, temp_Chx_2, temp_Chx_3, temp_Chx_4, temp_Chx_5)
 	return temp_Chx
 
-@jit(nopython=True)
+@jit(nopython = True)
 def create_A_matrix(Q1, Q2, Q3, k, Cmy_vec, Chx_vec, SS0h, SSLh, Rm, Rh):
 	temp_A = numpy.zeros((6,6), dtype = numpy.complex128)
 	temp_A[0,0] = Q1 - pinning_d1x + bulk_DD1 * k * Cmy_vec[0]
@@ -942,7 +948,7 @@ def MM(k, wH, w):
 	return result_ek
 
 @jit(nopython=True)
-def create_Gind_integral(z, w, k):
+def create_Gind_integral(k, z, w):
 	arg_One = numpy.sqrt(Q4(w) + k ** 2)
 	arg_Two = thicknessSi * abs(k)
 
@@ -957,16 +963,23 @@ def create_Gind_integral(z, w, k):
 	denominator = abs(k) * denom.sum()
 	result = numerator / denominator
 	return result
-	
+
+@jit(nopython=True)
+def realFunc(x, z, w):
+	return numpy.real(create_Gind_integral(x, z, w))
+@jit(nopython=True)
+def imagFunc(x, z, w):
+	return numpy.imag(create_Gind_integral(x, z, w))
+
+#@jit(nopython=True)	
 def Gind(z, w):
 	upper_Bound = 20 * QQ(w)
 	lower_Bound = 0
-	midOne_Bound = 0.001
-	midTwo_Bound = 1
-	integral_FirstBound = complex_quadrature(lambda x : create_Gind_integral(z, w, x), lower_Bound, midOne_Bound, limit = 1000)[0]
-	integral_SecondBound = complex_quadrature(lambda x : create_Gind_integral(z, w, x), midOne_Bound, midTwo_Bound, limit = 1000)[0]
-	integral_ThirdBound = complex_quadrature(lambda x : create_Gind_integral(z, w, x), midTwo_Bound, upper_Bound, limit = 1000)[0]
-	integral = integral_FirstBound + integral_SecondBound + integral_ThirdBound
+	integral = complex_quadrature(create_Gind_integral, lower_Bound, upper_Bound, args=(z,w), limit=1000)
+
+	#int_real = integrate.quad(realFunc, lower_Bound, upper_Bound, args=(z,w), limit=1000)[0]
+	#int_imag = integrate.quad(imagFunc, lower_Bound, upper_Bound, args=(z,w), limit=1000)[0]
+	#integral = int_real + int_imag * 1j
 	first_Term = 2 * (-w * muZero) / (2 * numpy.pi) * integral
 	argument_One = 2 * (thicknessSi + thicknessPt) * 20 * QQ(w) - 20 * QQ(w) * z * 1j
 	argument_Two = 2 * (thicknessSi + thicknessPt) * 20 * QQ(w) + 20 * QQ(w) * z * 1j
@@ -981,11 +994,22 @@ def create_eG_integral(k, H, z, w):
 	result = first_Term + second_Term
 	return result
 
+@jit(nopython=True)
+def real_func(k, H, z, w):
+	return numpy.real(create_eG_integral(k, H, z, w))
+@jit(nopython=True)
+def imag_func(k, H, z, w):
+		return numpy.imag(create_eG_integral(k, H, z, w))
+
+#@jit(nopython=True)
 def eG(H, z, w):
 	upper_Bound = 100 * numpy.pi / (wsignal)
 	lower_Bound = 1
-	integrand = lambda x : create_eG_integral(x, H, z, w)
-	integral = complex_quadrature(integrand, lower_Bound, upper_Bound, limit = 1000)[0]
+	integral = complex_quadrature(create_eG_integral, lower_Bound, upper_Bound, args=(H, z, w), limit = 1000)
+
+	#int_real = integrate.quad(real_func,lower_Bound, upper_Bound, args=(H, z, w), limit=1000)[0]
+	#int_imag = integrate.quad(imag_func, lower_Bound, upper_Bound, args=(H, z, w), limit=1000)[0]
+	#integral = int_real + int_imag * 1j
 	first_Term = 1 / (2 * numpy.pi) * integral
 	second_Term = Gind(z, w)
 	result = first_Term + second_Term
@@ -1535,7 +1559,7 @@ def recompile_funcs():
 	SLh.recompile()
 	Cmy.recompile()
 	Chx.recompile()
-	Chy.recompile()
+	#Chy.recompile()         #isn't currently used therefore no need to recompile
 	create_b_var.recompile()
 	create_c_var.recompile()
 	create_d_var.recompile()
@@ -1563,7 +1587,7 @@ def sim_varying_args(dir, Ycss, lowB, upB, pts, arg):
 		arg_dict = (arg, arg_val)
 		update_dict_vars(ind_Variables, arg_dict)
 		recompile_funcs()
-		myPool = Pool(initializer=update_dict_vars, initargs = (ind_Variables, arg_dict))
+		myPool = Pool(4, initializer=update_dict_vars, initargs = (ind_Variables, arg_dict))
 		simulate(myPool, Ycss, freq_lower, freq_upper, plot_pts_num, name)
 		myPool.close()
 		myPool.join()
@@ -1575,20 +1599,35 @@ def sim_varying_args(dir, Ycss, lowB, upB, pts, arg):
 
 def main():
 	#var_time = time.time()
-	#directory = 'C:/Users/22159666/LocalData/Local Documents/Programming/Projects/Python/SpinWave_Simulations/Python Simulation Results/laptop_pc/20200514'
+	#directory = 'C:/Users/22159666/LocalData/Local Documents/Programming/Projects/Python/SpinWave_Simulations/Python Simulation Results/laptop_pc/20200518'
 	#print("Start: antennaCalcs()")
-	var_Ycss = antennaCalcs()
-	print(var_Ycss)
-	#print("Time: antennaCalcs() = ", time.time() - var_time)
-	#average_simulation_time = sim_varying_args(directory, var_Ycss, 0, -2.7*10**-12, 20, 'surface_Ds2')
+	#var_Ycss = antennaCalcs()
+	#print(var_Ycss)
+	var_time = time.time()
+	#cProfile.run('JJI(appliedH, centralFreq, 1.6686*10**(-10) * 1j)', 'profile_stats1')
+	#p = pstats.Stats('profile_stats1')
+	#p.strip_dirs().sort_stats('file').print_stats()
+	#print("JJI compile: ", time.time() - var_time)
+	#var_time = time.time()
+	#cProfile.run('JJI(appliedH, centralFreq, 1.6686*10**(-10) * 1j)', 'profile_stats2')
+	#p = pstats.Stats('profile_stats2')
+	#p.strip_dirs().sort_stats('file').print_stats()
+	#print("JJI no compile: ", time.time() - var_time)
+	print(eG(appliedH, del_width, centralFreq))
+	print("Time: ", time.time() - var_time)
+	var_time = time.time()
+	print(eG(appliedH, del_width, centralFreq))
+	print("Time: ", time.time() - var_time)
+
+	#average_simulation_time = sim_varying_args(directory, var_Ycss, 0, +2.7*10**-12, 10, 'surface_Ds2')
 	#total_time = time.time() - var_time
-	#numpy.savetxt(os.path.join(directory, "times.csv"), numpy.array(((average_simulation_time, total_time),)), delimiter = ",", header = "Average Simulation Time, Total Time", footer = "Test")
+	#numpy.savetxt(os.path.join(directory, "times.csv"), numpy.array(((average_simulation_time, total_time),)), delimiter = ",", header = "Average Simulation Time, Total Time")
 	
 	return 0
 
 if __name__ == '__main__':
-	cProfile.run('main()', 'profile_stats')
-	p = pstats.Stats('profile_stats')
-	p.strip_dirs().sort_stats('file').print_stats()
-	p.sort_stats('time').print_stats()
-	#main()
+	#cProfile.run('main()', 'profile_stats')
+	#p = pstats.Stats('profile_stats')
+	#p.strip_dirs().sort_stats('file').print_stats()
+	#p.sort_stats('time').print_stats()
+	main()
