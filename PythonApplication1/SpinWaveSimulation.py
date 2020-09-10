@@ -2,6 +2,8 @@
 import time
 import pstats
 import cProfile
+import copy
+import math
 import numpy
 import scipy
 import sys
@@ -15,7 +17,7 @@ from datetime import date
 
 numpy.set_printoptions(threshold=sys.maxsize)
 
-len_JJI_Z_vec = 12
+
 
 #Defining some constants
 epsZero = 8.85 * 10 ** -12
@@ -34,10 +36,11 @@ del_width = wground / pts_ground
 pts_total = int(numpy.ceil((wsignal + 2 * wground) / del_width))
 pts_signal = pts_total - 2 * pts_ground
 pts_max = max(pts_signal, pts_ground)
+len_JJI_Z_vec = 12+pts_total
 
 #Metal Characteristics
 epsilonSi = 3.8
-sigmaFM = 1.7 * 10 ** 7
+sigmaFM = 1.7 * 10 ** 7 
 sigmaRu = 1 / (71 * 10 ** -9)
 sigmaPt = 1 / (105 * 10 ** -9)
 thicknessSi = 80 * 10 ** -9
@@ -51,21 +54,21 @@ var_R2 = resis_Al / (thicknessAl * wground)
 var_zc = 50
 
 #Frequency range to test with Simulation
-freq_lower = 2 * numpy.pi * 4 * 10 ** 9
-freq_upper = 2 * numpy.pi * 16 * 10 ** 9
-plot_pts_num = 150
+freq_lower = 2 * numpy.pi * 2 * 10 ** 9
+freq_upper = 2 * numpy.pi * 18 * 10 ** 9
+plot_pts_num = 2
 freq_step = (freq_upper - freq_lower) / plot_pts_num
 
 #Independent Variables
 centralFreq = numpy.pi * (2 * 10 * 10 ** 9)
-appliedH = 384 * 79.57747
-gamma = 2 * numpy.pi * 3 * 10 ** 10 * 4 * numpy.pi * 10 ** -7
-ampMs = (14500 / (10 ** 4 * muZero))
-gilDamping = 0.008
-exchangeA = 2 * 10 ** -7 * 10 ** -4
-surface_Ks1 = 0
+appliedH = 15000 * 79.57747
+gamma = 2 * numpy.pi * 2.86 * 10 ** 10 * 4 * numpy.pi * 10 ** -7
+ampMs = (16636 / (10 ** 4 * muZero))
+gilDamping = 0.011
+exchangeA = 1.5 * 10 ** -7 * 10 ** -4
+surface_Ks1 = 2.25*10**-3
 surface_Ks2 = 0
-surface_Ds1 = -1 * (0 * 2.7 * 10 ** -3 * 0.3 * 10 ** -9)
+surface_Ds1 = 0
 surface_Ds2 = 0
 
 #Dependent Variables
@@ -76,26 +79,28 @@ else:
 omegaH =  gamma  *  appliedH  
 omegaM =  gamma  *  ampMs  * numpy.sign( appliedH ) 
 alphaExchange = 2 *  exchangeA  / (muZero * ( satMs ** 2)) 
-applied_Hu1 = 2 *  surface_Ks1  / (muZero * abs(satMs)) 
+applied_Hu1 = 2 *  surface_Ks1  / (muZero * abs(satMs)*thicknessFM) 
 applied_Hu2 = 2 *  surface_Ks2  / (muZero * abs(satMs)) 
-pinning_d1y = -1 * (2 *  surface_Ks2  / (muZero * abs(satMs))) * muZero * abs(satMs) / (2 *  exchangeA ) 
-pinning_d2y = -1 * (2 *  surface_Ks1  / (muZero * abs(satMs))) * muZero * abs(satMs) / (2 *  exchangeA ) 
+pinning_d1y = -1 * (surface_Ks2  / (muZero * abs(satMs))) * muZero * abs(satMs) / (2 *  exchangeA )  #changed Removed factor of 2 in pinning as discussed 26/08/2020
+pinning_d2y = -1 * (surface_Ks1  / (muZero * abs(satMs))) * muZero * abs(satMs) / (2 *  exchangeA )  #changed "  "
 pinning_d1x = 0 
 pinning_d2x = 0 
 bulk_DD1 = 1j *  surface_Ds1  /  exchangeA  
 bulk_DD2 = -1j *  surface_Ds2  /  exchangeA 
 
 ind_Variables = {
-	"centralFreq": numpy.pi * (2 * 10 * 10 ** 9),
-	"appliedH": 228 * 79.57747,
-	"gamma": 2 * numpy.pi * 3 * 10 ** 10 * 4 * numpy.pi * 10 ** -7,
-	"ampMs": (16500 / (10 ** 4 * muZero)),
-	"gilDamping": 0.008,
-	"exchangeA": 2 * 10 ** -7 * 10 ** -4,
-	"surface_Ks1": 0,
-	"surface_Ks2": 0,
-	"surface_Ds1": -1 * (0 * 2.7 * 10 ** -3 * 0.3 * 10 ** -9),
-	"surface_Ds2": 0
+	"distance_Antennas": distance_Antennas,
+	"thicknessFM": thicknessFM,
+	"centralFreq": centralFreq,
+	"appliedH": appliedH,
+	"gamma": gamma,
+	"ampMs": ampMs,
+	"gilDamping": gilDamping,
+	"exchangeA": exchangeA,
+	"surface_Ks1": surface_Ks1,
+	"surface_Ks2": surface_Ks2,
+	"surface_Ds1": surface_Ds1,
+	"surface_Ds2": surface_Ds2
 	}
 
 #dep_Variables = {
@@ -167,6 +172,8 @@ def create_global_vars_matrix():
 	return matrix
 
 def update_global_vars(indV):
+	global distance_Antennas
+	global thicknessFM
 	global centralFreq
 	global appliedH
 	global gamma
@@ -191,6 +198,8 @@ def update_global_vars(indV):
 	global bulk_DD2
 
 	#Independent variables
+	distance_Antennas = indV["distance_Antennas"]
+	thicknessFM = indV["thicknessFM"]
 	centralFreq = indV["centralFreq"]
 	appliedH = indV["appliedH"]
 	gamma = indV["gamma"]
@@ -220,16 +229,12 @@ def update_global_vars(indV):
 	bulk_DD2= -1j * surface_Ds2 / exchangeA
 	return 0
 
-def update_dict_vars(indV, *args):
-	temp = indV
-	for val in args:
-		if val[0] in temp:
-			#print(val[0])
-			#print(val[1])
-			#print(temp[val[0]])
-			#print("True:")
-			temp[val[0]] = val[1]
-			#print(temp)
+def update_dict_vars(indV, arg_dict):
+	temp = copy.deepcopy(indV)
+	temp.update(arg_dict)    #changed
+	#for val in args:
+	#	if val[0] in temp:
+	#		temp[val[0]] = val[1]
 	update_global_vars(temp)
 	return 0
 
@@ -242,8 +247,6 @@ def complex_quadrature(func, lower_bound, upper_bound, **kwargs):
     real_integral = integrate.quad(real_func, lower_bound, upper_bound, **kwargs)
     imag_integral = integrate.quad(imag_func, lower_bound, upper_bound, **kwargs)
     return real_integral[0] + 1j*imag_integral[0]
-
-
 
 
 def Z0(kk, kks, kkl, kkls):
@@ -321,7 +324,6 @@ def Gsi(k):
 	result = ((integrated[0] + Ci(40 * k / thicknessSi) / (epsZero * (1 + epsilonSi))) / numpy.pi)
 	return result.real
 
-#@jit(nopython=True)
 def Qp(numsignal, numground, meshpts, nummax, deltaW):
 	b = numpy.zeros(meshpts)
 	a = numpy.zeros((meshpts, meshpts))
@@ -583,7 +585,7 @@ def Chx(Q, k, wH, w):
 
 	return numerator / denominator
 
-#@jit(nopython=True)
+@jit(nopython=True)
 def Chy(Q, k, wH, w):
 	num = numpy.zeros(34, dtype = numpy.complex128)
 	num[0] = Q ** 5 * alphaExchange ** 2 * w * sigmaFM * k * muZero * omegaM ** 2
@@ -970,8 +972,7 @@ def realFunc(x, z, w):
 @jit(nopython=True)
 def imagFunc(x, z, w):
 	return numpy.imag(create_Gind_integral(x, z, w))
-
-#@jit(nopython=True)	
+	
 def Gind(z, w):
 	upper_Bound = 20 * QQ(w)
 	lower_Bound = 0
@@ -1001,7 +1002,6 @@ def real_func(k, H, z, w):
 def imag_func(k, H, z, w):
 		return numpy.imag(create_eG_integral(k, H, z, w))
 
-#@jit(nopython=True)
 def eG(H, z, w):
 	upper_Bound = 100 * numpy.pi / (wsignal)
 	lower_Bound = 1
@@ -1381,7 +1381,7 @@ def create_JJI_E2_vec(Gout, ww):
 		for j in range(pts_total):
 			E2[2] += Gout[i,j] * ww[j]
 	E2[2] = del_width * E2[2] / pts_ground
-	return E2
+	return -E2				#Change back (remove minus)
 
 def create_JJI_B0_vec(eigVecs, Diag, E2):
 	B0 = numpy.zeros(5, dtype = numpy.complex128)
@@ -1464,7 +1464,7 @@ def JJI(H, w, Ycss):
 	matrix_JJI_I = create_JJI_I_matrix(vecs_JJI_ww, pts_signal, pts_ground, pts_total)
 	#print("Time: create_JJI_I_matrix = ", time.time() - var_time)
 
-	matrix_JJI_ZZ = numpy.linalg.inv(numpy.transpose(matrix_JJI_I)) / del_width
+	matrix_JJI_ZZ = -numpy.linalg.inv(numpy.transpose(matrix_JJI_I)) / del_width   #Change back (remove minus)
 	var_Y11 = Ycss * w
 	#var_time = time.time()
 	matrix_JJI_AL = create_JJI_AL_matrix(var_Y11, matrix_JJI_ZZ)
@@ -1498,12 +1498,16 @@ def JJI(H, w, Ycss):
 	vec_JJI_Iout = create_JJI_Iout_vec(vec_eigAL, vec_eigVecAL, var_JJI_b, vec_JJI_B0)
 	var_JJI_Vout = create_JJI_Vout_var(vec_eigAL, vec_eigVecAL, var_JJI_b, vec_JJI_B0)
 	vec_JJI_Z = create_JJI_Z_vec(var_JJI_gamma, vec_JJI_E2, vec_JJI_Iout, var_JJI_Vout, var_JJI_ZL_one, var_JJI_ZL_two, var_JJI_J4average, w, vec_JJI_Iaverage, vec_JJI_Ic)
-
-	print("Frequency: ", w)
+	
+	print(numpy.shape(vec_JJI_ww2), pts_total)
+	print("Frequency: ", numpy.real(w/(2*numpy.pi)))
 	print("Time Frequency: ", time.time() - var_time)
 	#print("vec_JJI_Z: ")
 	#print(vec_JJI_Z)
-	return vec_JJI_Z
+	#print(vec_JJI_ww2)
+	final_result = numpy.concatenate((vec_JJI_Z, vec_JJI_ww2))
+	print(numpy.shape(final_result))
+	return final_result     #changed returning both the Z vector as well as the complex current density WW2
 
 def create_main_freq_vec(freq_lower, freq_step, plot_pts_num):
 	result = numpy.zeros(plot_pts_num, numpy.float64)
@@ -1520,32 +1524,59 @@ def create_main_freq_vec(freq_lower, freq_step, plot_pts_num):
 #	return 0
 
 def create_savefile(filename, result_matrix, frequencies):
-	matrix = numpy.zeros((len(frequencies), 5), dtype = numpy.float64)
+	matrix = numpy.zeros((len(frequencies), 49), dtype = numpy.float64)
+	current_densities = numpy.zeros((len(frequencies), 4*pts_total + 1), dtype = numpy.float64)
 	for i in range(len(frequencies)):
+		#This was how we had it originally
 		matrix[i,0] = frequencies[i] / (2 * numpy.pi)
-		matrix[i,1] = numpy.real(result_matrix[i][7])
-		matrix[i,2] = numpy.imag(result_matrix[i][7])
-		matrix[i,3] = numpy.real(result_matrix[i][0])
-		matrix[i,4] = numpy.imag(result_matrix[i][0])
-	numpy.savetxt(filename + ".csv", matrix, header = "Frequency, Real(S21), Imag(S21), Real(S11), Imag(S11)", delimiter=',')
+		current_densities[i,0] = frequencies[i] / (2*numpy.pi)
+		#matrix[i,1] = numpy.real(result_matrix[i][7])
+		#matrix[i,2] = numpy.imag(result_matrix[i][7])
+		#matrix[i,3] = numpy.real(result_matrix[i][0])
+		#matrix[i,4] = numpy.imag(result_matrix[i][0])
+		#matrix[i,5] = numpy.absolute(result_matrix[i][7])
+		#matrix[i,6] = numpy.absolute(result_matrix[i][0])
+		#matrix[i,7] = numpy.angle(result_matrix[i][7])
+		#matrix[i,8] = numpy.angle(result_matrix[i][0])
+
+		#We will now save all of the results not just the S parameter
+		for j in range(12):
+			matrix[i,4*j+1] = numpy.real(result_matrix[i][j])
+			matrix[i,4*j+2] = numpy.imag(result_matrix[i][j])
+			matrix[i,4*j+3] = numpy.absolute(result_matrix[i][j])
+			matrix[i,4*j+4] = numpy.angle(result_matrix[i][j])
+
+		for j in range(pts_total):   #changed
+			current_densities[i,j+1] = numpy.real(result_matrix[i][j+12])
+			current_densities[i,j+pts_total+1] = numpy.imag(result_matrix[i][j+12])
+			current_densities[i,j+2*pts_total+1] = numpy.absolute(result_matrix[i][j+12])
+			current_densities[i,j+3*pts_total+1] = numpy.angle(result_matrix[i][j+12])
+		
+		
+	numpy.savetxt(filename + ".csv", matrix, header = "Frequency, Real(S11), Imag(S11), Amp(S11), Phase(S11), Real(E0), Imag(E0), Amp(E0), Phase(E0), Real(E1), Imag(E1), Amp(E1), Phase(E1), Real(E2), Imag(E2), Amp(E2), Phase(E2), Real(I0), Imag(I0), Amp(I0), Phase(I0), Real(I1), Imag(I1), Amp(I1), Phase(I1), Real(I2), Imag(I2), Amp(I2), Phase(I2), Real(S21), Imag(S21), Amp(S21), Phase(S21), Real(ZL1), Imag(ZL1), Amp(ZL1), Phase(ZL1), Real(ZL2), Imag(ZL2), Amp(ZL2), Phase(ZL2), Real(J4avg), Imag(J4avg), Amp(J4avg), Phase(J4avg), Real(Icavg), Imag(Icavg), Amp(Icavg), Phase(Icavg) ", delimiter=',')
 	numpy.savetxt(filename + "_vars.txt", create_global_vars_matrix(), fmt = "%s")
+	numpy.savetxt(filename + "_current.csv", current_densities, header = "Frequency, Real(ww2) all, Imag(ww2) all, Amp(ww2) all, Phase(ww2) all", delimiter= ',')    #changed 
 	return 0
 
 def simulate(current_pool, Ycss, start_freq, end_freq, points, filename):
 	vec_frequencies = create_main_freq_vec(start_freq, (end_freq-start_freq) / points, points)
-	print("Frequencies: ", vec_frequencies)
+	print("Frequencies: ", vec_frequencies/(2*numpy.pi))
 	result_matrix = numpy.zeros((len_JJI_Z_vec, points), dtype = numpy.complex128)
-
+	
 	vec_arguments = numpy.zeros(points, dtype = (numpy.complex128, 3))
+	print(numpy.shape(result_matrix))
 	for i in range(points):
 		vec_arguments[i] = (appliedH, vec_frequencies[i], Ycss)
-	result_matrix = current_pool.starmap(JJI, vec_arguments)
+	result_matrix = current_pool.starmap(JJI, vec_arguments)      #This seems to transpose result_matrix from (x,y) to (y,x)
 	#print("Result: ")
 	#print(result_matrix)
 	#print("Result[0][1]: ", result_matrix[0][1])
 	#print("Result[0]: ", result_matrix[0])
 	#print("Result[:][0]: ", result_matrix[:][0])
 	#create_plots(result_matrix, vec_frequencies)
+	print(numpy.shape(result_matrix))
+	print(result_matrix)
+	print(result_matrix[0])
 	create_savefile(filename, result_matrix, vec_frequencies)
 	return 0
 
@@ -1577,15 +1608,20 @@ def recompile_funcs():
 	create_xi_vec.recompile()
 	return 0
 
-def sim_varying_args(dir, Ycss, lowB, upB, pts, arg):
+def sim_varying_args(dir, Ycss, lowB, upB, pts, arg, **kwargs):
 	arg_val = lowB
-	step = (upB - lowB)/pts
+	step = 0
+	if (pts > 1):
+		step = (upB - lowB)/(pts-1)
 	total_time = 0
-	for i in range(pts + 1):
+	for i in range(pts):
 		var_time = time.time()
 		name = os.path.join(dir, str(date.today()) + "_" + arg + "_" + str(arg_val))
-		arg_dict = (arg, arg_val)
-		update_dict_vars(ind_Variables, arg_dict)
+		#arg_dict = (arg, arg_val)
+		#update_dict_vars(ind_Variables, arg_dict)
+		arg_dict = {arg:arg_val}	#changed
+		arg_dict.update(kwargs)    #changed
+		update_dict_vars(ind_Variables, arg_dict)   #changed
 		recompile_funcs()
 		myPool = Pool(4, initializer=update_dict_vars, initargs = (ind_Variables, arg_dict))
 		simulate(myPool, Ycss, freq_lower, freq_upper, plot_pts_num, name)
@@ -1595,39 +1631,66 @@ def sim_varying_args(dir, Ycss, lowB, upB, pts, arg):
 		time_simulation = time.time() - var_time
 		total_time += time_simulation
 		print("Time Simulation: ", time_simulation)
-	return total_time / (pts + 1)
+	return total_time / (pts)
+
+def mm_plot(xvals, frequency,**kwargs):
+	yvals = numpy.zeros(len(xvals), dtype=numpy.float)
+	update_dict_vars(ind_Variables, kwargs)
+	for i in range(len(xvals)):
+		yvals[i] = math.log(abs(MM(xvals[i],gamma*(appliedH+del_H(centralFreq)), frequency)))
+	return yvals
+
+def mm_plot_frequency(xfreqs,k,**kwargs):
+	yvals = numpy.zeros(len(xfreqs), dtype=numpy.float)
+	update_dict_vars(ind_Variables, kwargs)
+	for i in range(len(xfreqs)):
+		yvals[i] = (abs(MM(k,gamma*(appliedH+del_H(xfreqs[i])),xfreqs[i])))
+	return yvals
 
 def main():
 	#var_time = time.time()
-	#directory = 'C:/Users/22159666/LocalData/Local Documents/Programming/Projects/Python/SpinWave_Simulations/Python Simulation Results/laptop_pc/20200518'
+	#directory = 'C:/Users/22159666/LocalData/Local Documents/Programming/Projects/Python/SpinWave_Simulations/Python Simulation Results/proper_pinning/laptop_pc/tests'
 	#print("Start: antennaCalcs()")
 	#var_Ycss = antennaCalcs()
 	#print(var_Ycss)
-	var_time = time.time()
-	#cProfile.run('JJI(appliedH, centralFreq, 1.6686*10**(-10) * 1j)', 'profile_stats1')
-	#p = pstats.Stats('profile_stats1')
-	#p.strip_dirs().sort_stats('file').print_stats()
-	#print("JJI compile: ", time.time() - var_time)
-	#var_time = time.time()
-	#cProfile.run('JJI(appliedH, centralFreq, 1.6686*10**(-10) * 1j)', 'profile_stats2')
-	#p = pstats.Stats('profile_stats2')
-	#p.strip_dirs().sort_stats('file').print_stats()
-	#print("JJI no compile: ", time.time() - var_time)
-	print(eG(appliedH, del_width, centralFreq))
-	print("Time: ", time.time() - var_time)
-	var_time = time.time()
-	print(eG(appliedH, del_width, centralFreq))
-	print("Time: ", time.time() - var_time)
 
-	#average_simulation_time = sim_varying_args(directory, var_Ycss, 0, +2.7*10**-12, 10, 'surface_Ds2')
+	JJI(appliedH, centralFreq,1j*1.6686635518747008*10**-10)
+
+	#average_simulation_time = sim_varying_args(directory, var_Ycss, 2.5*10**-6, 7.5*10**-6, 1, 'distance_Antennas')
 	#total_time = time.time() - var_time
 	#numpy.savetxt(os.path.join(directory, "times.csv"), numpy.array(((average_simulation_time, total_time),)), delimiter = ",", header = "Average Simulation Time, Total Time")
 	
+	#print(MM(1,1,1))
+	#print(MM(3.8*10**6,gamma*(appliedH+del_H(centralFreq)),centralFreq))
+	#xvals = numpy.arange(0.1*10**6,10*10**6,1*10**4,dtype=numpy.float)
+	#xfreqs=2*numpy.pi*numpy.arange(9*10**9,11*10**9,0.1*10**8,dtype=numpy.float)
+	#xfreqsplot = xfreqs / (2*numpy.pi)
+	##y1 = mm_plot(xvals, 9.68*10**9 * 2*numpy.pi,surface_Ks1=0*10**-3)
+	##print(surface_Ks1, surface_Ks2)
+	##y2 = mm_plot(xvals, 9.04*10**9 * 2*numpy.pi, surface_Ks1=2.25*10**-3)
+	##print(surface_Ks1, surface_Ks2)
+	##y3 = mm_plot(xvals, 10*10**9 * 2*numpy.pi, surface_Ks1 = 0*-1.8*10**-3, surface_Ks2=0*-1.8*10**-3)
+	##print(surface_Ks1, surface_Ks2)
+	#y1freqs = mm_plot_frequency(xfreqs,3.48*10**6, surface_Ks1=0*2.25*10**-3)
+	#print(surface_Ks1, surface_Ks2)
+	#y2freqs = mm_plot_frequency(xfreqs,3.8*10**6, surface_Ks1=2.25*10**-3)
+	#print(surface_Ks1, surface_Ks2)
+	#y3freqs = mm_plot_frequency(xfreqs,3.8*10**6, surface_Ks2=2.25*10**-3)
+	#print(surface_Ks1, surface_Ks2)
+	#y4freqs = mm_plot_frequency(xfreqs,3.8*10**6, surface_Ks1=0*2*10**-3, surface_Ks2=0*0.25*10**-3)
+	#print(surface_Ks1, surface_Ks2)
+	##plt.plot(xvals,y1)
+	##plt.plot(xvals,y1)
+	##plt.plot(xfreqs,y1freqs,xfreqs,y2freqs,xfreqs,y3freqs)
+	##plt.plot(xfreqsplot,y1freqs,xfreqsplot,y2freqs,xfreqsplot,y3freqs,xfreqsplot,y4freqs)
+	#plt.plot(xfreqsplot, y1freqs)
+	#plt.show()
+
 	return 0
 
 if __name__ == '__main__':
-	#cProfile.run('main()', 'profile_stats')
-	#p = pstats.Stats('profile_stats')
-	#p.strip_dirs().sort_stats('file').print_stats()
-	#p.sort_stats('time').print_stats()
+	cProfile.run('main()', 'profile_stats')
+	p = pstats.Stats('profile_stats')
+	p.strip_dirs().sort_stats('file').print_stats()
+	p.sort_stats('time').print_stats()
 	main()
