@@ -28,7 +28,7 @@ wsignal = 648 * 10 ** -9				#changed antenna widths to smaller antenna
 wground = 324 * 10 ** -9
 wgap = 334 * 10 ** -9
 length_Antenna = 20 * 10 ** -6
-distance_Antennas = -2.464 * 10 ** -6      #changed
+distance_Antennas = 2.464 * 10 ** -6      #changed
 
 #Setting up simulation points across Antenna
 pts_ground = 26
@@ -36,7 +36,7 @@ del_width = wground / pts_ground
 pts_total = int(numpy.ceil((wsignal + 2 * wground) / del_width))
 pts_signal = pts_total - 2 * pts_ground
 pts_max = max(pts_signal, pts_ground)
-len_JJI_Z_vec = 12+pts_total
+len_JJI_Z_vec = 12+pts_total+9
 
 #Metal Characteristics
 epsilonSi = 3.8
@@ -48,7 +48,7 @@ thicknessFM = 20 * 10 ** -9
 thicknessRu = 5 * 10 ** -9
 thicknessPt = 5 * 10 ** -9
 thicknessAl = 100 * 10 ** -9
-resis_Al = 0*2.65 * 10 ** -8
+resis_Al = 1*2.65 * 10 ** -8
 var_R1 = resis_Al / (thicknessAl * wsignal)
 var_R2 = resis_Al / (thicknessAl * wground)
 var_zc = 50
@@ -56,7 +56,7 @@ var_zc = 50
 #Frequency range to test with Simulation
 freq_lower = 2 * numpy.pi * 8* 10 ** 9
 freq_upper = 2 * numpy.pi * 22 * 10 ** 9
-plot_pts_num = 25
+plot_pts_num = 75
 if plot_pts_num > 1:
 	freq_step = (freq_upper - freq_lower) / (plot_pts_num -1)
 else:
@@ -70,7 +70,7 @@ gamma = 2 * numpy.pi * 3 * 10 ** 10 * 4 * numpy.pi * 10 ** -7
 ampMs = (20900 / (10 ** 4 * muZero))
 gilDamping = 0.0107
 exchangeA = 2.625 * 10 ** -7 * 10 ** -4
-surface_Ks1 = 1*3.49266*10**-3					#changed
+surface_Ks1 = 0*3.49266*10**-3					#changed
 surface_Ks2 = 1*3.49266*10**-3
 surface_Ds1 = 0 * 10 ** -12
 surface_Ds2 = 0
@@ -1529,7 +1529,7 @@ def JJI(H, w, Ycss):
 	matrix_JJI_I = create_JJI_I_matrix(vecs_JJI_ww, pts_signal, pts_ground, pts_total)
 	#print("Time: create_JJI_I_matrix = ", time.time() - var_time)
 
-	matrix_JJI_ZZ = -numpy.linalg.inv(numpy.transpose(matrix_JJI_I)) / del_width   #Changed (added minus)
+	matrix_JJI_ZZ = numpy.linalg.inv(numpy.transpose(matrix_JJI_I)) / del_width   #Changed (removed minus as this seems to be more physical) 
 	var_Y11 = Ycss * w
 	#var_time = time.time()
 	matrix_JJI_AL = create_JJI_AL_matrix(var_Y11, matrix_JJI_ZZ)
@@ -1570,9 +1570,10 @@ def JJI(H, w, Ycss):
 	#print("vec_JJI_Z: ")
 	#print(vec_JJI_Z)
 	#print(vec_JJI_ww2)
-	final_result = numpy.concatenate((vec_JJI_Z, vec_JJI_ww2))
+	final_result = numpy.concatenate((vec_JJI_Z, vec_JJI_ww2, matrix_JJI_ZZ.flatten()))    #returnin Z vector, complex current density, and impedance ZZ matrix
 	#print(numpy.shape(final_result))
-	return final_result     #changed returning both the Z vector as well as the complex current density WW2
+		
+	return final_result     #changed returning both the Z vector as well as the complex current density WW2, and impedance ZZ matrix
 
 
 # This function is used only in testing when wanting to obtain current density in single strips when E = 1 in individual strips
@@ -1625,7 +1626,7 @@ def JJI_E2_distribution_outantenna(H, w, Ycss):
 	matrix_JJI_I = create_JJI_I_matrix(vecs_JJI_ww, pts_signal, pts_ground, pts_total)
 	#print("Time: create_JJI_I_matrix = ", time.time() - var_time)
 
-	matrix_JJI_ZZ = -numpy.linalg.inv(numpy.transpose(matrix_JJI_I)) / del_width   #Changed (added minus)
+	matrix_JJI_ZZ = numpy.linalg.inv(numpy.transpose(matrix_JJI_I)) / del_width   #Changed (added minus)
 	var_Y11 = Ycss * w
 	#var_time = time.time()
 	matrix_JJI_AL = create_JJI_AL_matrix(var_Y11, matrix_JJI_ZZ)
@@ -1680,7 +1681,7 @@ def JJI_Edist_custom(H, w, Ycss, xout):
 	matrix_JJI_I = create_JJI_I_matrix(vecs_JJI_ww, pts_signal, pts_ground, pts_total)
 	#print("Time: create_JJI_I_matrix = ", time.time() - var_time)
 
-	matrix_JJI_ZZ = -numpy.linalg.inv(numpy.transpose(matrix_JJI_I)) / del_width   #Changed (added minus)
+	matrix_JJI_ZZ = numpy.linalg.inv(numpy.transpose(matrix_JJI_I)) / del_width   #Changed (added minus)
 	var_Y11 = Ycss * w
 	#var_time = time.time()
 	matrix_JJI_AL = create_JJI_AL_matrix(var_Y11, matrix_JJI_ZZ)
@@ -1734,10 +1735,12 @@ def create_main_freq_vec(freq_lower, freq_step, plot_pts_num):
 def create_savefile(filename, result_matrix, frequencies):
 	matrix = numpy.zeros((len(frequencies), 50), dtype = numpy.float64)								#changed increased to 50 to store unwrapped phase as well
 	current_densities = numpy.zeros((len(frequencies), 4*pts_total + 1), dtype = numpy.float64)
+	impedance = numpy.zeros((len(frequencies), 9*4 + 1), dtype=numpy.float64)
 	for i in range(len(frequencies)):
 		#This was how we had it originally
 		matrix[i,0] = frequencies[i] / (2 * numpy.pi)
 		current_densities[i,0] = frequencies[i] / (2*numpy.pi)
+		impedance[i,0] = frequencies[i] / (2*numpy.pi)
 		#matrix[i,1] = numpy.real(result_matrix[i][7])
 		#matrix[i,2] = numpy.imag(result_matrix[i][7])
 		#matrix[i,3] = numpy.real(result_matrix[i][0])
@@ -1760,13 +1763,25 @@ def create_savefile(filename, result_matrix, frequencies):
 			current_densities[i,j+pts_total+1] = numpy.imag(result_matrix[i][j+12])
 			current_densities[i,j+2*pts_total+1] = numpy.absolute(result_matrix[i][j+12])
 			current_densities[i,j+3*pts_total+1] = numpy.angle(result_matrix[i][j+12])
+
+		for j in range(9):
+			impedance[i, 4*j+1] = numpy.real(result_matrix[i][j+12+pts_total])
+			impedance[i, 4*j+2] = numpy.imag(result_matrix[i][j+12+pts_total])
+			impedance[i, 4*j+3] = numpy.absolute(result_matrix[i][j+12+pts_total])
+			impedance[i, 4*j+4] = numpy.angle(result_matrix[i][j+12+pts_total])
 		
 
 	matrix[:,49] = numpy.unwrap(matrix[:,32])					#changed adding unwrapped phase to output data
-		
+	
+	head = "Frequency"
+	for i in range(3):
+		for j in range(3):
+			head += ", Real(Z"+str(i+1)+str(j+1)+"), Imag(Z"+str(i+1)+str(j+1)+"), Amp(Z"+str(i+1)+str(j+1)+"), Phase(Z"+str(i+1)+str(j+1)+")"  
+	
 	numpy.savetxt(filename + ".csv", matrix, header = "Frequency, Real(S11), Imag(S11), Amp(S11), Phase(S11), Real(E0), Imag(E0), Amp(E0), Phase(E0), Real(E1), Imag(E1), Amp(E1), Phase(E1), Real(E2), Imag(E2), Amp(E2), Phase(E2), Real(I0), Imag(I0), Amp(I0), Phase(I0), Real(I1), Imag(I1), Amp(I1), Phase(I1), Real(I2), Imag(I2), Amp(I2), Phase(I2), Real(S21), Imag(S21), Amp(S21), Phase(S21), Real(ZL1), Imag(ZL1), Amp(ZL1), Phase(ZL1), Real(ZL2), Imag(ZL2), Amp(ZL2), Phase(ZL2), Real(J4avg), Imag(J4avg), Amp(J4avg), Phase(J4avg), Real(Icavg), Imag(Icavg), Amp(Icavg), Phase(Icavg), Unwrapped Phase(S21) ", delimiter=',')	#changed added Unwrapped Phase(S21) to header
 	numpy.savetxt(filename + "_vars.txt", create_global_vars_matrix(), fmt = "%s")
 	numpy.savetxt(filename + "_current.csv", current_densities, header = "Frequency, Real(ww2) all, Imag(ww2) all, Amp(ww2) all, Phase(ww2) all", delimiter= ',')    #changed 
+	numpy.savetxt(filename + "_impedance.csv", impedance, header= head, delimiter=',')  #changed
 	return 0
 
 def simulate(current_pool, Ycss, start_freq, end_freq, points, filename):
@@ -1934,12 +1949,12 @@ def Efield_dist_custom(H, w, Ycss, xout):
 
 def main():
 	var_time = time.time()
-	directory = 'H:/My Documents/Physics/PhD Work/Simulation Code/Python Simulation Results/20210406_fixed_Gind/laptop_pc/20210421'     #changed now storing in H drive which is backed up on the University servers
+	directory = 'H:/My Documents/Physics/PhD Work/Simulation Code/Python Simulation Results/20210406_fixed_Gind/laptop_pc/20210422'     #changed now storing in H drive which is backed up on the University servers
 	print("Start: antennaCalcs()")
 	var_Ycss = antennaCalcs()
 	print(var_Ycss)
 
-	average_simulation_time = sim_varying_args(directory, var_Ycss,2.464 * 10 ** -6, 2.464 * 10 ** -6, 1, 'distance_Antennas', id="resistivity_antenna=0")
+	average_simulation_time = sim_varying_args(directory, var_Ycss, -2.464 * 10 ** -6, 2.464 * 10 ** -6, 2, 'distance_Antennas', id="Ku1=0_Ku2=default")
 	total_time = time.time() - var_time
 	numpy.savetxt(os.path.join(directory, "times.csv"), numpy.array(((average_simulation_time, total_time),)), delimiter = ",", header = "Average Simulation Time, Total Time")
 	
