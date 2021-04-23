@@ -56,7 +56,7 @@ var_zc = 50
 #Frequency range to test with Simulation
 freq_lower = 2 * numpy.pi * 8* 10 ** 9
 freq_upper = 2 * numpy.pi * 22 * 10 ** 9
-plot_pts_num = 75
+plot_pts_num = 25
 if plot_pts_num > 1:
 	freq_step = (freq_upper - freq_lower) / (plot_pts_num -1)
 else:
@@ -70,7 +70,7 @@ gamma = 2 * numpy.pi * 3 * 10 ** 10 * 4 * numpy.pi * 10 ** -7
 ampMs = (20900 / (10 ** 4 * muZero))
 gilDamping = 0.0107
 exchangeA = 2.625 * 10 ** -7 * 10 ** -4
-surface_Ks1 = 0*3.49266*10**-3					#changed
+surface_Ks1 = 1*3.49266*10**-3					#changed
 surface_Ks2 = 1*3.49266*10**-3
 surface_Ds1 = 0 * 10 ** -12
 surface_Ds2 = 0
@@ -1212,7 +1212,7 @@ def create_JJI_AL_matrix(Y11, matrix_Z):
 
 	return AL*(-1)
 
-def create_JJI_bn_vec(eigVals, eigVecs):
+def create_JJI_bn_vec(eigVals, eigVecs):							# changed added minus sign to exponents in bn_vec
 	bn_first = numpy.zeros((4,4), dtype=numpy.complex128)
 	bn_first[0,0] = eigVecs[0,0]+eigVecs[1,0]+eigVecs[2,0]
 	bn_first[0,1] = eigVecs[0,1]+eigVecs[1,1]+eigVecs[2,1]
@@ -1229,52 +1229,52 @@ def create_JJI_bn_vec(eigVals, eigVecs):
 	bn_first[2,2] = eigVecs[4,2]
 	bn_first[2,3] = eigVecs[4,3]
 
-	bn_first[3,0] = (eigVecs[0,0]+eigVecs[1,0]+eigVecs[2,0]) * numpy.exp(eigVals[0] * length_Antenna)
-	bn_first[3,1] = (eigVecs[0,1]+eigVecs[1,1]+eigVecs[2,1]) * numpy.exp(eigVals[1] * length_Antenna)
-	bn_first[3,2] = (eigVecs[0,2]+eigVecs[1,2]+eigVecs[2,2]) * numpy.exp(eigVals[2] * length_Antenna)
-	bn_first[3,3] = (eigVecs[0,3]+eigVecs[1,3]+eigVecs[2,3]) * numpy.exp(eigVals[3] * length_Antenna)
+	bn_first[3,0] = (eigVecs[0,0]+eigVecs[1,0]+eigVecs[2,0]) * numpy.exp(eigVals[0] * -length_Antenna)
+	bn_first[3,1] = (eigVecs[0,1]+eigVecs[1,1]+eigVecs[2,1]) * numpy.exp(eigVals[1] * -length_Antenna)
+	bn_first[3,2] = (eigVecs[0,2]+eigVecs[1,2]+eigVecs[2,2]) * numpy.exp(eigVals[2] * -length_Antenna)
+	bn_first[3,3] = (eigVecs[0,3]+eigVecs[1,3]+eigVecs[2,3]) * numpy.exp(eigVals[3] * -length_Antenna)
 
 	bn_second = numpy.zeros(4, dtype = numpy.complex128)
 	bn_second[0] = -1 * (eigVecs[0,4]+eigVecs[1,4]+eigVecs[2,4])
 	bn_second[1] = -1 * eigVecs[3,4]
 	bn_second[2] = -1 * eigVecs[4,4]
-	bn_second[3] = -1 * (numpy.exp(eigVals[4] * length_Antenna) * (eigVecs[0,4]+eigVecs[1,4]+eigVecs[2,4]))
+	bn_second[3] = -1 * (numpy.exp(eigVals[4] * -length_Antenna) * (eigVecs[0,4]+eigVecs[1,4]+eigVecs[2,4]))
 
 	result = numpy.dot(numpy.linalg.inv(bn_first), bn_second)
 	return result
 
-def create_JJI_ZL_one_var(eigVals, eigVecs, bn):
+def create_JJI_ZL_one_var(eigVals, eigVecs, bn):					# changed added minus sign to exponents in ZL_one
 	ZL_one_num = numpy.zeros(5, dtype=numpy.complex128)
-	ZL_one_num[0] = eigVecs[3,4]*numpy.exp(length_Antenna * eigVals[4])
-	ZL_one_num[1] = eigVecs[3,0]*bn[0]*numpy.exp(length_Antenna*eigVals[0])
-	ZL_one_num[2] = eigVecs[3,1]*bn[1]*numpy.exp(length_Antenna*eigVals[1])
-	ZL_one_num[3] = eigVecs[3,2]*bn[2]*numpy.exp(length_Antenna*eigVals[2])
-	ZL_one_num[4] = eigVecs[3,3]*bn[3]*numpy.exp(length_Antenna*eigVals[3])
+	ZL_one_num[0] = eigVecs[3,4]*numpy.exp(-length_Antenna * eigVals[4])
+	ZL_one_num[1] = eigVecs[3,0]*bn[0]*numpy.exp(-length_Antenna*eigVals[0])
+	ZL_one_num[2] = eigVecs[3,1]*bn[1]*numpy.exp(-length_Antenna*eigVals[1])
+	ZL_one_num[3] = eigVecs[3,2]*bn[2]*numpy.exp(-length_Antenna*eigVals[2])
+	ZL_one_num[4] = eigVecs[3,3]*bn[3]*numpy.exp(-length_Antenna*eigVals[3])
 
 	ZL_one_denom = numpy.zeros(5, dtype=numpy.complex128)
-	ZL_one_denom[0] = eigVecs[1,4]*numpy.exp(length_Antenna*eigVals[4])
-	ZL_one_denom[1] = eigVecs[1,0]*bn[0]*numpy.exp(length_Antenna*eigVals[0])
-	ZL_one_denom[2] = eigVecs[1,1]*bn[1]*numpy.exp(length_Antenna*eigVals[1])
-	ZL_one_denom[3] = eigVecs[1,2]*bn[2]*numpy.exp(length_Antenna*eigVals[2])
-	ZL_one_denom[4] = eigVecs[1,3]*bn[3]*numpy.exp(length_Antenna*eigVals[3])
+	ZL_one_denom[0] = eigVecs[1,4]*numpy.exp(-length_Antenna*eigVals[4])
+	ZL_one_denom[1] = eigVecs[1,0]*bn[0]*numpy.exp(-length_Antenna*eigVals[0])
+	ZL_one_denom[2] = eigVecs[1,1]*bn[1]*numpy.exp(-length_Antenna*eigVals[1])
+	ZL_one_denom[3] = eigVecs[1,2]*bn[2]*numpy.exp(-length_Antenna*eigVals[2])
+	ZL_one_denom[4] = eigVecs[1,3]*bn[3]*numpy.exp(-length_Antenna*eigVals[3])
 
 	ZL_one = -1 * (ZL_one_num.sum() / ZL_one_denom.sum())
 	return ZL_one
 
-def create_JJI_ZL_two_var(eigVals, eigVecs, bn):
+def create_JJI_ZL_two_var(eigVals, eigVecs, bn):				# changed added minus signs to exponents in ZL_two
 	ZL_two_num = numpy.zeros(5, dtype=numpy.complex128)
-	ZL_two_num[0] = eigVecs[4,4]*numpy.exp(length_Antenna*eigVals[4])
-	ZL_two_num[1] = eigVecs[4,0]*bn[0]*numpy.exp(length_Antenna*eigVals[0])
-	ZL_two_num[2] = eigVecs[4,1]*bn[1]*numpy.exp(length_Antenna*eigVals[1])
-	ZL_two_num[3] = eigVecs[4,2]*bn[2]*numpy.exp(length_Antenna*eigVals[2])
-	ZL_two_num[4] = eigVecs[4,3]*bn[3]*numpy.exp(length_Antenna*eigVals[3])
+	ZL_two_num[0] = eigVecs[4,4]*numpy.exp(-length_Antenna*eigVals[4])
+	ZL_two_num[1] = eigVecs[4,0]*bn[0]*numpy.exp(-length_Antenna*eigVals[0])
+	ZL_two_num[2] = eigVecs[4,1]*bn[1]*numpy.exp(-length_Antenna*eigVals[1])
+	ZL_two_num[3] = eigVecs[4,2]*bn[2]*numpy.exp(-length_Antenna*eigVals[2])
+	ZL_two_num[4] = eigVecs[4,3]*bn[3]*numpy.exp(-length_Antenna*eigVals[3])
 
 	ZL_two_denom = numpy.zeros(5, dtype=numpy.complex128)
-	ZL_two_denom[0] = eigVecs[2,4]*numpy.exp(length_Antenna*eigVals[4])
-	ZL_two_denom[1] = eigVecs[2,0]*bn[0]*numpy.exp(length_Antenna*eigVals[0])
-	ZL_two_denom[2] = eigVecs[2,1]*bn[1]*numpy.exp(length_Antenna*eigVals[1])
-	ZL_two_denom[3] = eigVecs[2,2]*bn[2]*numpy.exp(length_Antenna*eigVals[2])
-	ZL_two_denom[4] = eigVecs[2,3]*bn[3]*numpy.exp(length_Antenna*eigVals[3])
+	ZL_two_denom[0] = eigVecs[2,4]*numpy.exp(-length_Antenna*eigVals[4])
+	ZL_two_denom[1] = eigVecs[2,0]*bn[0]*numpy.exp(-length_Antenna*eigVals[0])
+	ZL_two_denom[2] = eigVecs[2,1]*bn[1]*numpy.exp(-length_Antenna*eigVals[1])
+	ZL_two_denom[3] = eigVecs[2,2]*bn[2]*numpy.exp(-length_Antenna*eigVals[2])
+	ZL_two_denom[4] = eigVecs[2,3]*bn[3]*numpy.exp(-length_Antenna*eigVals[3])
 
 	ZL_two = -1 * (ZL_two_num.sum() / ZL_two_denom.sum())
 	return ZL_two
@@ -1949,12 +1949,12 @@ def Efield_dist_custom(H, w, Ycss, xout):
 
 def main():
 	var_time = time.time()
-	directory = 'H:/My Documents/Physics/PhD Work/Simulation Code/Python Simulation Results/20210406_fixed_Gind/laptop_pc/20210422'     #changed now storing in H drive which is backed up on the University servers
+	directory = 'H:/My Documents/Physics/PhD Work/Simulation Code/Python Simulation Results/20210406_fixed_Gind/laptop_pc/20210423'     #changed now storing in H drive which is backed up on the University servers
 	print("Start: antennaCalcs()")
 	var_Ycss = antennaCalcs()
 	print(var_Ycss)
 
-	average_simulation_time = sim_varying_args(directory, var_Ycss, -2.464 * 10 ** -6, 2.464 * 10 ** -6, 2, 'distance_Antennas', id="Ku1=0_Ku2=default")
+	average_simulation_time = sim_varying_args(directory, var_Ycss, 2.464 * 10 ** -6, 2.464 * 10 ** -6, 1, 'distance_Antennas', id="fixed_minus_exponent_ZLs_bn")
 	total_time = time.time() - var_time
 	numpy.savetxt(os.path.join(directory, "times.csv"), numpy.array(((average_simulation_time, total_time),)), delimiter = ",", header = "Average Simulation Time, Total Time")
 	
