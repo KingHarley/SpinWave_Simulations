@@ -1529,7 +1529,7 @@ def JJI(H, w, Ycss):
 	matrix_JJI_I = create_JJI_I_matrix(vecs_JJI_ww, pts_signal, pts_ground, pts_total)
 	#print("Time: create_JJI_I_matrix = ", time.time() - var_time)
 
-	matrix_JJI_ZZ = numpy.linalg.inv(numpy.transpose(matrix_JJI_I)) / del_width   #Changed (removed minus as this seems to be more physical) 
+	matrix_JJI_ZZ = -numpy.linalg.inv(numpy.transpose(matrix_JJI_I)) / del_width   #Changed (re-added minus to compensate changed sign in exponent of ZL's and bn) 
 	var_Y11 = Ycss * w
 	#var_time = time.time()
 	matrix_JJI_AL = create_JJI_AL_matrix(var_Y11, matrix_JJI_ZZ)
