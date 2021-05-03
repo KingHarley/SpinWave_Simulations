@@ -1206,77 +1206,88 @@ def create_JJI_AL_matrix(Y11, matrix_Z):
 	AL[3,2] = matrix_Z[1,2] - matrix_Z[0,2]
 	AL[4,2] = var_R2 - matrix_Z[0,2] + matrix_Z[2,2]
 	AL[0,3] = -Y11
-	AL[1,3] = -Y11
+	AL[1,3] = Y11				# changed to +ve sign
 	AL[0,4] = -Y11
-	AL[2,4] = -Y11
+	AL[2,4] = Y11				# changed to +ve sign
 
 	return AL*(-1)
 
-def create_JJI_bn_vec(eigVals, eigVecs):							# changed added minus sign to exponents in bn_vec
-	bn_first = numpy.zeros((4,4), dtype=numpy.complex128)
+def create_JJI_bn_vec(eigVals, eigVecs):							# changed Exponents are + again. Matrix is now 5x5 added a new row and column. Second vector is simpler now (0, 0, 0, 1, 1)
+	bn_first = numpy.zeros((5,5), dtype=numpy.complex128)
 	bn_first[0,0] = eigVecs[0,0]+eigVecs[1,0]+eigVecs[2,0]
 	bn_first[0,1] = eigVecs[0,1]+eigVecs[1,1]+eigVecs[2,1]
 	bn_first[0,2] = eigVecs[0,2]+eigVecs[1,2]+eigVecs[2,2]
 	bn_first[0,3] = eigVecs[0,3]+eigVecs[1,3]+eigVecs[2,3]
+	bn_first[0,4] = eigVecs[0,4]+eigVecs[1,4]+eigVecs[2,4]
 
 	bn_first[1,0] = eigVecs[3,0]
 	bn_first[1,1] = eigVecs[3,1]
 	bn_first[1,2] = eigVecs[3,2]
 	bn_first[1,3] = eigVecs[3,3]
+	bn_first[1,4] = eigVecs[3,4]
 
 	bn_first[2,0] = eigVecs[4,0]
 	bn_first[2,1] = eigVecs[4,1]
 	bn_first[2,2] = eigVecs[4,2]
 	bn_first[2,3] = eigVecs[4,3]
+	bn_first[2,4] = eigVecs[4,4]
 
-	bn_first[3,0] = (eigVecs[0,0]+eigVecs[1,0]+eigVecs[2,0]) * numpy.exp(eigVals[0] * -length_Antenna)
-	bn_first[3,1] = (eigVecs[0,1]+eigVecs[1,1]+eigVecs[2,1]) * numpy.exp(eigVals[1] * -length_Antenna)
-	bn_first[3,2] = (eigVecs[0,2]+eigVecs[1,2]+eigVecs[2,2]) * numpy.exp(eigVals[2] * -length_Antenna)
-	bn_first[3,3] = (eigVecs[0,3]+eigVecs[1,3]+eigVecs[2,3]) * numpy.exp(eigVals[3] * -length_Antenna)
+	bn_first[3,0] = (eigVecs[3,0]+eigVecs[1,0]*2*var_zc) * numpy.exp(eigVals[0] * length_Antenna)
+	bn_first[3,1] = (eigVecs[3,1]+eigVecs[1,1]*2*var_zc) * numpy.exp(eigVals[1] * length_Antenna)
+	bn_first[3,2] = (eigVecs[3,2]+eigVecs[1,2]*2*var_zc) * numpy.exp(eigVals[2] * length_Antenna)
+	bn_first[3,3] = (eigVecs[3,3]+eigVecs[1,3]*2*var_zc) * numpy.exp(eigVals[3] * length_Antenna)
+	bn_first[3,4] = (eigVecs[3,4]+eigVecs[1,4]*2*var_zc) * numpy.exp(eigVals[4] * length_Antenna)
 
-	bn_second = numpy.zeros(4, dtype = numpy.complex128)
-	bn_second[0] = -1 * (eigVecs[0,4]+eigVecs[1,4]+eigVecs[2,4])
-	bn_second[1] = -1 * eigVecs[3,4]
-	bn_second[2] = -1 * eigVecs[4,4]
-	bn_second[3] = -1 * (numpy.exp(eigVals[4] * -length_Antenna) * (eigVecs[0,4]+eigVecs[1,4]+eigVecs[2,4]))
+	bn_first[4,0] = (eigVecs[4,0]+eigVecs[2,0]*2*var_zc) * numpy.exp(eigVals[0] * length_Antenna)
+	bn_first[4,1] = (eigVecs[4,1]+eigVecs[2,1]*2*var_zc) * numpy.exp(eigVals[1] * length_Antenna)
+	bn_first[4,2] = (eigVecs[4,2]+eigVecs[2,2]*2*var_zc) * numpy.exp(eigVals[2] * length_Antenna)
+	bn_first[4,3] = (eigVecs[4,3]+eigVecs[2,3]*2*var_zc) * numpy.exp(eigVals[3] * length_Antenna)
+	bn_first[4,4] = (eigVecs[4,4]+eigVecs[2,4]*2*var_zc) * numpy.exp(eigVals[4] * length_Antenna)
+
+	bn_second = numpy.zeros(5, dtype = numpy.complex128)
+	bn_second[0] = 0
+	bn_second[1] = 0
+	bn_second[2] = 0
+	bn_second[3] = 1
+	bn_second[4] = 1
 
 	result = numpy.dot(numpy.linalg.inv(bn_first), bn_second)
 	return result
 
-def create_JJI_ZL_one_var(eigVals, eigVecs, bn):					# changed added minus sign to exponents in ZL_one
+def create_JJI_ZL_one_var(eigVals, eigVecs, bn):					# changed 4th term in numerator and denominator. Exponents also no longer are negative
 	ZL_one_num = numpy.zeros(5, dtype=numpy.complex128)
-	ZL_one_num[0] = eigVecs[3,4]*numpy.exp(-length_Antenna * eigVals[4])
-	ZL_one_num[1] = eigVecs[3,0]*bn[0]*numpy.exp(-length_Antenna*eigVals[0])
-	ZL_one_num[2] = eigVecs[3,1]*bn[1]*numpy.exp(-length_Antenna*eigVals[1])
-	ZL_one_num[3] = eigVecs[3,2]*bn[2]*numpy.exp(-length_Antenna*eigVals[2])
-	ZL_one_num[4] = eigVecs[3,3]*bn[3]*numpy.exp(-length_Antenna*eigVals[3])
+	ZL_one_num[0] = eigVecs[3,0]*bn[0]*numpy.exp(length_Antenna*eigVals[0])
+	ZL_one_num[1] = eigVecs[3,1]*bn[1]*numpy.exp(length_Antenna*eigVals[1])
+	ZL_one_num[2] = eigVecs[3,2]*bn[2]*numpy.exp(length_Antenna*eigVals[2])
+	ZL_one_num[3] = eigVecs[3,3]*bn[3]*numpy.exp(length_Antenna*eigVals[3])
+	ZL_one_num[4] = eigVecs[3,4]*bn[4]*numpy.exp(length_Antenna*eigVals[4])
 
 	ZL_one_denom = numpy.zeros(5, dtype=numpy.complex128)
-	ZL_one_denom[0] = eigVecs[1,4]*numpy.exp(-length_Antenna*eigVals[4])
-	ZL_one_denom[1] = eigVecs[1,0]*bn[0]*numpy.exp(-length_Antenna*eigVals[0])
-	ZL_one_denom[2] = eigVecs[1,1]*bn[1]*numpy.exp(-length_Antenna*eigVals[1])
-	ZL_one_denom[3] = eigVecs[1,2]*bn[2]*numpy.exp(-length_Antenna*eigVals[2])
-	ZL_one_denom[4] = eigVecs[1,3]*bn[3]*numpy.exp(-length_Antenna*eigVals[3])
+	ZL_one_denom[0] = eigVecs[1,0]*bn[0]*numpy.exp(length_Antenna*eigVals[0])
+	ZL_one_denom[1] = eigVecs[1,1]*bn[1]*numpy.exp(length_Antenna*eigVals[1])
+	ZL_one_denom[2] = eigVecs[1,2]*bn[2]*numpy.exp(length_Antenna*eigVals[2])
+	ZL_one_denom[3] = eigVecs[1,3]*bn[3]*numpy.exp(length_Antenna*eigVals[3])
+	ZL_one_denom[4] = eigVecs[1,4]*bn[4]*numpy.exp(length_Antenna*eigVals[4])
 
-	ZL_one = -1 * (ZL_one_num.sum() / ZL_one_denom.sum())
+	ZL_one = (ZL_one_num.sum() / ZL_one_denom.sum())
 	return ZL_one
 
-def create_JJI_ZL_two_var(eigVals, eigVecs, bn):				# changed added minus signs to exponents in ZL_two
+def create_JJI_ZL_two_var(eigVals, eigVecs, bn):				# changed 4th term in numerator and denominator. Exponents also no longer are negative
 	ZL_two_num = numpy.zeros(5, dtype=numpy.complex128)
-	ZL_two_num[0] = eigVecs[4,4]*numpy.exp(-length_Antenna*eigVals[4])
-	ZL_two_num[1] = eigVecs[4,0]*bn[0]*numpy.exp(-length_Antenna*eigVals[0])
-	ZL_two_num[2] = eigVecs[4,1]*bn[1]*numpy.exp(-length_Antenna*eigVals[1])
-	ZL_two_num[3] = eigVecs[4,2]*bn[2]*numpy.exp(-length_Antenna*eigVals[2])
-	ZL_two_num[4] = eigVecs[4,3]*bn[3]*numpy.exp(-length_Antenna*eigVals[3])
+	ZL_two_num[0] = eigVecs[4,0]*bn[0]*numpy.exp(length_Antenna*eigVals[0])
+	ZL_two_num[1] = eigVecs[4,1]*bn[1]*numpy.exp(length_Antenna*eigVals[1])
+	ZL_two_num[2] = eigVecs[4,2]*bn[2]*numpy.exp(length_Antenna*eigVals[2])
+	ZL_two_num[3] = eigVecs[4,3]*bn[3]*numpy.exp(length_Antenna*eigVals[3])
+	ZL_two_num[4] = eigVecs[4,4]*bn[4]*numpy.exp(length_Antenna*eigVals[4])
 
 	ZL_two_denom = numpy.zeros(5, dtype=numpy.complex128)
-	ZL_two_denom[0] = eigVecs[2,4]*numpy.exp(-length_Antenna*eigVals[4])
-	ZL_two_denom[1] = eigVecs[2,0]*bn[0]*numpy.exp(-length_Antenna*eigVals[0])
-	ZL_two_denom[2] = eigVecs[2,1]*bn[1]*numpy.exp(-length_Antenna*eigVals[1])
-	ZL_two_denom[3] = eigVecs[2,2]*bn[2]*numpy.exp(-length_Antenna*eigVals[2])
-	ZL_two_denom[4] = eigVecs[2,3]*bn[3]*numpy.exp(-length_Antenna*eigVals[3])
+	ZL_two_denom[0] = eigVecs[2,0]*bn[0]*numpy.exp(length_Antenna*eigVals[0])
+	ZL_two_denom[1] = eigVecs[2,1]*bn[1]*numpy.exp(length_Antenna*eigVals[1])
+	ZL_two_denom[2] = eigVecs[2,2]*bn[2]*numpy.exp(length_Antenna*eigVals[2])
+	ZL_two_denom[3] = eigVecs[2,3]*bn[3]*numpy.exp(length_Antenna*eigVals[3])
+	ZL_two_denom[4] = eigVecs[2,4]*bn[4]*numpy.exp(length_Antenna*eigVals[4])
 
-	ZL_two = -1 * (ZL_two_num.sum() / ZL_two_denom.sum())
+	ZL_two = (ZL_two_num.sum() / ZL_two_denom.sum())
 	return ZL_two
 
 def create_JJI_Ic_vec(ZL_one, ZL_two):
@@ -1451,8 +1462,8 @@ def create_JJI_E2_vec_dist(Gout, ww):
 def create_JJI_B0_vec(eigVecs, Diag, E2):
 	B0 = numpy.zeros(5, dtype = numpy.complex128)
 	last_vec = numpy.zeros(5, dtype = numpy.complex128)
-	last_vec[3] = -(E2[1] - E2[0])
-	last_vec[4] = -(E2[2] - E2[0])
+	last_vec[3] = (E2[1] - E2[0])							# changed to +
+	last_vec[4] = (E2[2] - E2[0])							# changed to +
 	B0 = numpy.dot(numpy.dot(numpy.dot(eigVecs,Diag), numpy.linalg.inv(eigVecs)), last_vec)
 	return B0
 
@@ -1949,12 +1960,12 @@ def Efield_dist_custom(H, w, Ycss, xout):
 
 def main():
 	var_time = time.time()
-	directory = 'H:/My Documents/Physics/PhD Work/Simulation Code/Python Simulation Results/20210406_fixed_Gind/laptop_pc/20210423'     #changed now storing in H drive which is backed up on the University servers
+	directory = 'H:/My Documents/Physics/PhD Work/Simulation Code/Python Simulation Results/20210406_fixed_Gind/laptop_pc/20210429'     #changed now storing in H drive which is backed up on the University servers
 	print("Start: antennaCalcs()")
 	var_Ycss = antennaCalcs()
 	print(var_Ycss)
 
-	average_simulation_time = sim_varying_args(directory, var_Ycss, 2.464 * 10 ** -6, 2.464 * 10 ** -6, 1, 'distance_Antennas', id="fixed_minus_exponent_ZLs_bn")
+	average_simulation_time = sim_varying_args(directory, var_Ycss, 2.464 * 10 ** -6, 2.464 * 10 ** -6, 1, 'distance_Antennas', id="AL_matrix_-ve_Y11_default")
 	total_time = time.time() - var_time
 	numpy.savetxt(os.path.join(directory, "times.csv"), numpy.array(((average_simulation_time, total_time),)), delimiter = ",", header = "Average Simulation Time, Total Time")
 	
