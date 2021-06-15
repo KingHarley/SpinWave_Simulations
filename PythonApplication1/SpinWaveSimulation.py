@@ -40,8 +40,8 @@ len_JJI_Z_vec = 12+pts_total+9
 #Metal Characteristics
 epsilonSi = 3.8
 sigmaFM = (1.7/4) * 10 ** 7#1.7 * 10 ** 7 
-sigmaRu = (1/4) / (105 * 10 ** -9)#1 / (71 * 10 ** -9)
-sigmaPt = (1/4) / (105 * 10 ** -9)#1 / (105 * 10 ** -9)
+sigmaRu = 1 / (71 * 10 ** -9)
+sigmaPt = 1 / (105 * 10 ** -9)
 thicknessSi = 80 * 10 ** -9
 thicknessFM = 20 * 10 ** -9
 thicknessRu = 5 * 10 ** -9
@@ -55,7 +55,7 @@ var_zc = 50
 #Frequency range to test with Simulation
 freq_lower = 2 * numpy.pi * 7 * 10 ** 9
 freq_upper = 2 * numpy.pi * 17 * 10 ** 9
-plot_pts_num = 25
+plot_pts_num = 2
 if plot_pts_num > 1:
 	freq_step = (freq_upper - freq_lower) / (plot_pts_num -1)
 else:
@@ -1999,13 +1999,12 @@ def sim_varying_args(dir, Ycss, lowB, upB, pts, arg, **kwargs):
 	return 0
 
 def main():
-<<<<<<< HEAD
-	directory = '/home/spintronics/SpinWave_Simulations_updated/Python Simulation Results/20201110_pinning_proper/20201112'
+	directory = '/home/spintronics/SpinWave_Simulations_updated/Python Simulation Results/20210615_Paper/LowConductivities'
 	print("Start: antennaCalcs()")
 	var_time = time.time()
 	var_Ycss = antennaCalcs()
 	print(var_Ycss)
-	average_simulation_time = sim_varying_args(directory, var_Ycss, -2.464*10**-6, 2.464*10**-6, 2, 'distance_Antennas', id="1/4_conductivities")
+	average_simulation_time = sim_varying_args(directory, var_Ycss, -2.464*10**-6, 2.464*10**-6, 2, 'distance_Antennas', id="quarter_FM_conductivity")
 	total_time = time.time() - var_time
 	numpy.savetxt(os.path.join(directory, "times.csv"), numpy.array(((average_simulation_time, total_time),)), delimiter = ",", header = "Average Simulation Time, Total Time")
 
