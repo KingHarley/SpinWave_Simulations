@@ -40,9 +40,9 @@ len_JJI_Z_vec = 12+pts_total+9
 
 #Metal Characteristics
 epsilonSi = 3.8
-sigmaFM = 1.7 * 10 ** 7 
-sigmaRu = 1 / (71 * 10 ** -9)
-sigmaPt = 1 / (105 * 10 ** -9)
+sigmaFM = (1.7/4) * 10 ** 7#1.7 * 10 ** 7 
+sigmaRu = (1/4) / (105 * 10 ** -9)#1 / (71 * 10 ** -9)
+sigmaPt = (1/4) / (105 * 10 ** -9)#1 / (105 * 10 ** -9)
 thicknessSi = 80 * 10 ** -9
 thicknessFM = 20 * 10 ** -9
 thicknessRu = 5 * 10 ** -9
@@ -54,8 +54,8 @@ var_R2 = resis_Al / (thicknessAl * wground)
 var_zc = 50
 
 #Frequency range to test with Simulation
-freq_lower = 2 * numpy.pi * 8* 10 ** 9
-freq_upper = 2 * numpy.pi * 22 * 10 ** 9
+freq_lower = 2 * numpy.pi * 7 * 10 ** 9
+freq_upper = 2 * numpy.pi * 17 * 10 ** 9
 plot_pts_num = 25
 if plot_pts_num > 1:
 	freq_step = (freq_upper - freq_lower) / (plot_pts_num -1)
@@ -65,7 +65,7 @@ else:
 
 #Independent Variables
 centralFreq = numpy.pi * (2 * 15 * 10 ** 9)
-appliedH = 1083.24 * 79.57747
+appliedH =	600*1.02 * 79.57747		#1083.24 * 79.57747
 gamma = 2 * numpy.pi * 3 * 10 ** 10 * 4 * numpy.pi * 10 ** -7
 ampMs = (20900 / (10 ** 4 * muZero))
 gilDamping = 0.0107
@@ -1210,7 +1210,7 @@ def create_JJI_AL_matrix(Y11, matrix_Z):
 	AL[0,4] = -Y11
 	AL[2,4] = Y11				# changed to +ve sign
 
-	return AL*(-1)
+	return AL					# changed returning +ve AL (no longer return AL * (-1))
 
 def create_JJI_bn_vec(eigVals, eigVecs):							# changed Exponents are + again. Matrix is now 5x5 added a new row and column. Second vector is simpler now (0, 0, 0, 1, 1)
 	bn_first = numpy.zeros((5,5), dtype=numpy.complex128)
@@ -1402,7 +1402,7 @@ def create_JJI_Gout_element(i, j, H, delH, xj, xi, w):
 #				Gout[i,j] = Gout[i-1, j-1]
 #	return Gout
 
-# The Greens function (eG) calculated at the output antenna  I believe. Stored in some matrix.
+# The Greens function (eG) calculated at the output antenna I believe. Stored in some matrix.
 def create_JJI_Gout_matrix(H, delH, xj, xi, w):											
 	Gout = numpy.zeros((pts_total, pts_total), dtype = numpy.complex128)
 	for i in range(pts_total):
@@ -1457,7 +1457,7 @@ def create_JJI_E2_vec_dist(Gout, ww):
 		for j in range(pts_total):
 			E2[i] += Gout[i,j] * ww[j]
 
-	return -E2				# Changed (added minus)
+	return E2				# Changed (removed minus V=El)
 
 def create_JJI_B0_vec(eigVecs, Diag, E2):
 	B0 = numpy.zeros(5, dtype = numpy.complex128)
@@ -1540,7 +1540,7 @@ def JJI(H, w, Ycss):
 	matrix_JJI_I = create_JJI_I_matrix(vecs_JJI_ww, pts_signal, pts_ground, pts_total)
 	#print("Time: create_JJI_I_matrix = ", time.time() - var_time)
 
-	matrix_JJI_ZZ = -numpy.linalg.inv(numpy.transpose(matrix_JJI_I)) / del_width   #Changed (re-added minus to compensate changed sign in exponent of ZL's and bn) 
+	matrix_JJI_ZZ = numpy.linalg.inv(numpy.transpose(matrix_JJI_I)) / del_width   #Changed (removed minus since electronics engineering uses this convention. V=El) 
 	var_Y11 = Ycss * w
 	#var_time = time.time()
 	matrix_JJI_AL = create_JJI_AL_matrix(var_Y11, matrix_JJI_ZZ)
@@ -1692,7 +1692,7 @@ def JJI_Edist_custom(H, w, Ycss, xout):
 	matrix_JJI_I = create_JJI_I_matrix(vecs_JJI_ww, pts_signal, pts_ground, pts_total)
 	#print("Time: create_JJI_I_matrix = ", time.time() - var_time)
 
-	matrix_JJI_ZZ = numpy.linalg.inv(numpy.transpose(matrix_JJI_I)) / del_width   #Changed (added minus)
+	matrix_JJI_ZZ = numpy.linalg.inv(numpy.transpose(matrix_JJI_I)) / del_width   #Changed removed minus
 	var_Y11 = Ycss * w
 	#var_time = time.time()
 	matrix_JJI_AL = create_JJI_AL_matrix(var_Y11, matrix_JJI_ZZ)
@@ -1874,7 +1874,7 @@ def mm_plot(xvals, frequency,**kwargs):
 	yvals = numpy.zeros(len(xvals), dtype=numpy.float64)
 	update_dict_vars(ind_Variables, kwargs)
 	for i in range(len(xvals)):
-		yvals[i] = math.log(abs(MM(xvals[i],gamma*(Hi + del_H(frequency)*1), frequency)))    #changed reduced the losses
+		yvals[i] = math.log(abs(MM(xvals[i],gamma*(Hi + del_H(frequency)*0), frequency)))    #changed reduced the losses
 	return yvals
 
 def mm_plot_frequency(xfreqs,k,**kwargs):
@@ -1945,10 +1945,10 @@ def Efield_dist_custom(H, w, Ycss, xout):
 	out_matrix = numpy.column_stack((out_matrix, numpy.real(efield)))
 	out_matrix = numpy.column_stack((out_matrix, numpy.imag(efield)))
 	out_matrix = numpy.column_stack((out_matrix, numpy.absolute(efield)))
-	out_matrix = numpy.column_stack((out_matrix, numpy.angle(efield)))
+	out_matrix = numpy.column_stack((out_matrix, numpy.unwrap(numpy.angle(efield))))
 
 	directory = 'H:/My Documents/Physics/PhD Work/Simulation Code/Python Simulation Results/Output Tests'
-	file = 'Espinwave_onband_' + str(w/(2*numpy.pi))
+	file = 'Efield_x-distance_' + str(w/(2*numpy.pi))
 	file_tosave = os.path.join(directory, file)
 
 	head = "x, Re(E), Im(E), |E|, arg(E)"
@@ -1960,12 +1960,12 @@ def Efield_dist_custom(H, w, Ycss, xout):
 
 def main():
 	var_time = time.time()
-	directory = 'H:/My Documents/Physics/PhD Work/Simulation Code/Python Simulation Results/20210406_fixed_Gind/laptop_pc/20210429'     #changed now storing in H drive which is backed up on the University servers
+	directory = 'H:/My Documents/Physics/PhD Work/Simulation Code/Python Simulation Results/20210503_fixed_ZL_S11/laptop_pc/Lower_conductivity'     #changed now storing in H drive which is backed up on the University servers
 	print("Start: antennaCalcs()")
 	var_Ycss = antennaCalcs()
 	print(var_Ycss)
 
-	average_simulation_time = sim_varying_args(directory, var_Ycss, 2.464 * 10 ** -6, 2.464 * 10 ** -6, 1, 'distance_Antennas', id="AL_matrix_-ve_Y11_default")
+	average_simulation_time = sim_varying_args(directory, var_Ycss, -2.464*10**-6, 2.464*10**-6, 2, 'distance_Antennas', id="1/4_conductivities")
 	total_time = time.time() - var_time
 	numpy.savetxt(os.path.join(directory, "times.csv"), numpy.array(((average_simulation_time, total_time),)), delimiter = ",", header = "Average Simulation Time, Total Time")
 	
@@ -1973,17 +1973,17 @@ def main():
 
 	#t = time.time()
 	#print("Start: ", t)
-	#freq = 14.63*10**9 * 2*numpy.pi
-	#print(Gind(0.1*10**-6, freq))
-	###print(MM(1,1,1))
-	###print(MM(3.8*10**6,gamma*(appliedH+del_H(centralFreq)),centralFreq))
-	##xvals = numpy.arange(0.1*10**6,30*10**6,1*10**4,dtype=numpy.float)
-	##xdist = numpy.arange(0.1*10**-6, 10*10**-6, 0.01*10**-6, dtype=numpy.float)
-	##xfreqs=2*numpy.pi*numpy.arange(4*10**9,18*10**9,0.1*10**8,dtype=numpy.float)
-	##xfreqsplot = xfreqs / (2*numpy.pi)
-	##y1 = mm_plot(xvals, freq, appliedH = 1083*79.57747)
-	###print(appliedH, Hi, omegaU, omegaH, Hubx, satMs, pinning_d1y, pinning_d2y)
-	###y2 = mm_plot(xvals,freq, appliedH = -1530*79.57747)
+	#freq = 19*10**9 * 2*numpy.pi
+	#####print(Gind(0.1*10**-6, freq))
+	#####print(MM(1,1,1))
+	#####print(MM(3.8*10**6,gamma*(appliedH+del_H(centralFreq)),centralFreq))
+	#xvals = numpy.arange(0.1*10**6,10*10**6,1*10**4,dtype=numpy.float)
+	###xdist = numpy.arange(0.1*10**-6, 5*10**-6, 0.1*10**-6, dtype=numpy.float)
+	####xfreqs=2*numpy.pi*numpy.arange(4*10**9,18*10**9,0.1*10**8,dtype=numpy.float)
+	###xfreqsplot = xfreqs / (2*numpy.pi)
+	#y1 = mm_plot(xvals, freq)
+	####print(appliedH, Hi, omegaU, omegaH, Hubx, satMs, pinning_d1y, pinning_d2y)
+	#y2 = mm_plot(xvals,freq, appliedH=-appliedH)
 	###print(appliedH, Hi, omegaU, omegaH, Hubx, satMs, pinning_d1y, pinning_d2y)
 	###y3 = mm_plot(xvals, freq, appliedH = -500*79.57747, surface_Ks1 = 2.25*10**-3)
 	###print(appliedH, satMs, pinning_d1y, pinning_d2y)
@@ -1999,55 +1999,58 @@ def main():
 	###print(appliedH, satMs, pinning_d1y, pinning_d2y)
 	###y4freqs = mm_plot_frequency(xfreqs,3.6*10**6, surface_Ks1=0*2*10**-3, surface_Ks2=0*0.25*10**-3)
 	###print(appliedH, satMs, pinning_d1y, pinning_d2y)
-	##plt.plot(xvals,y1,'b-')
-	###plt.plot(xvals,y2,'r-')
-	###plt.plot(xvals,y3,'g-')
-	###plt.plot(xvals,y4,'y-')
-	###plt.plot(xvals,y5,'c-')
-	###plt.plot(xfreqs,y1freqs,xfreqs,y2freqs,xfreqs,y3freqs)
-	###plt.plot(xfreqsplot, y1freqs, 'b-')
-	###plt.plot(xfreqsplot, y2freqs, 'r-')
-	###plt.plot(xfreqsplot, y3freqs, 'g-')
-	###plt.plot(xfreqsplot, y4freqs, 'y-')
+	#plt.plot(xvals,y1,'b-')
+	#plt.plot(xvals,y2,'r-')
+	####plt.plot(xvals,y3,'g-')
+	####plt.plot(xvals,y4,'y-')
+	####plt.plot(xvals,y5,'c-')
+	####plt.plot(xfreqs,y1freqs,xfreqs,y2freqs,xfreqs,y3freqs)
+	####plt.plot(xfreqsplot, y1freqs, 'b-')
+	####plt.plot(xfreqsplot, y2freqs, 'r-')
+	####plt.plot(xfreqsplot, y3freqs, 'g-')
+	####plt.plot(xfreqsplot, y4freqs, 'y-')
+	#plt.show()
 
-	###xout = xvals
-	###yout = y1
-	###outmatrix = numpy.column_stack((xout, yout))
+	#directory = 'H:/My Documents/Physics/PhD Work/Simulation Code/Python Simulation Results/Output Tests/MM'
+	#file = 'Symmetric_19GHz_FM_layer_normal'
+	#file_tosave = os.path.join(directory, file)
 
-	###def egVec(z, H, w):
-	###	return eG(H, z, w)
+	#xout = xvals
+	#yout = y1
+	#outmatrix = numpy.column_stack((xout, y1, y2))
 
-	###veceG = numpy.vectorize(egVec)
+	#def egVec(z, H, w):
+	#	return eG(H, z, w)
 
-
-	###xout = xdist
-	###yout = veceG(xdist, Hi + del_H(freq), freq)
-	###outmatrix = numpy.column_stack((xout, numpy.absolute(yout), numpy.angle(yout)))
-
-	###directory = 'H:/My Documents/Physics/PhD Work/Simulation Code/Python Simulation Results/Output Tests'
-	###file = 'MM_10GHz_onband'
-	###file_tosave = os.path.join(directory, file)
+	#veceG = numpy.vectorize(egVec)
 
 
-	###y = eG_plot(Hi+del_H(freq), xdist, freq)
-	###print("Gind: ", Gind(1*10**-6,freq))
-	###plt.plot(xdist, numpy.absolute(y), 'b-')
-	##plt.show()
+	#xout = xdist
+	#yout = veceG(xdist, Hi + del_H(freq), freq)
+	#outmatrix = numpy.column_stack((xout, numpy.absolute(yout), numpy.unwrap(numpy.angle(yout))))
+
+	
 
 
-	###numpy.savetxt(file_tosave + ".csv",outmatrix, delimiter=',', header = "x, yamp, yphase")
-	###numpy.savetxt(file_tosave + "_vars.txt", create_global_vars_matrix(), fmt = "%s")
-	####print(eG(Hi+del_H(freq), 1*10**-5, freq))
-	###print("Finish: ", time.time()-t)
+	####y = eG_plot(Hi+del_H(freq), xdist, freq)
+	####print("Gind: ", Gind(1*10**-6,freq))
+	####plt.plot(xdist, numpy.absolute(y), 'b-')
+	#plt.show()
 
-	##curr_single_strip(Hi, freq, var_Ycss, 0)
+
+	#numpy.savetxt(file_tosave + ".csv",outmatrix, delimiter=',', header = "k, S21, S12")
+	#numpy.savetxt(file_tosave + "_vars.txt", create_global_vars_matrix(), fmt = "%s")
+	##print(eG(Hi+del_H(freq), 1*10**-5, freq))
+	#print("Finish: ", time.time()-t)
+
+	####curr_single_strip(Hi, freq, var_Ycss, 0)
 	#xvals = numpy.zeros(50, dtype=numpy.float)
-	##xoutantenna = create_xi_vec()
+	###xoutantenna = create_xi_vec()
 	#for i in range(len(xvals)):
 	#	xvals[i] = i*0.1*10**-6 + 2*10**-6
-	#print("xvals: ", xvals)
+	##print("xvals: ", xvals)
 	#Efield_dist_custom(Hi, freq, var_Ycss, xvals)
-	#Efield_dist(Hi, freq, var_Ycss)
+	##Efield_dist(Hi, freq, var_Ycss)
 
 	return 0
 
