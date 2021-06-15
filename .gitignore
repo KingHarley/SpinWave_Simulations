@@ -3,8 +3,8 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
-#Custom files by Charles Weiss 15/06/20201
-"Python Simulation Results"/
+Python Simulation Results/
+
 
 # User-specific files
 *.rsuser
