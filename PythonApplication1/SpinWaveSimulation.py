@@ -24,9 +24,9 @@ epsZero = 8.85 * 10 ** -12
 muZero = 4 * numpy.pi * 10 ** -7
 
 #Antenna Geometry
-wsignal = 648 * 10 ** -9				#changed antenna widths to smaller antenna
-wground = 324 * 10 ** -9
-wgap = 334 * 10 ** -9
+wsignal = 810 * 10 ** -9#648 * 10 ** -9				#changed antenna widths to smaller antenna
+wground = 450 * 10 ** -9#324 * 10 ** -9
+wgap = 180 * 10 ** -9#334 * 10 ** -9
 length_Antenna = 20 * 10 ** -6
 distance_Antennas = 2.464 * 10 ** -6      #changed
 
@@ -40,15 +40,16 @@ len_JJI_Z_vec = 12+pts_total+9
 
 #Metal Characteristics
 epsilonSi = 3.8
-sigmaFM = (1.7/4) * 10 ** 7#1.7 * 10 ** 7 
-sigmaRu = (1/4) / (105 * 10 ** -9)#1 / (71 * 10 ** -9)
-sigmaPt = (1/4) / (105 * 10 ** -9)#1 / (105 * 10 ** -9)
+sigmaFM = 1.7 * 10 ** 7 
+sigmaRu = 1 / (71 * 10 ** -9)
+sigmaPt = 1 / (105 * 10 ** -9)
 thicknessSi = 80 * 10 ** -9
 thicknessFM = 20 * 10 ** -9
 thicknessRu = 5 * 10 ** -9
 thicknessPt = 5 * 10 ** -9
 thicknessAl = 100 * 10 ** -9
 resis_Al = 1*2.65 * 10 ** -8
+var_Ys = resis_Al / thicknessAl
 var_R1 = resis_Al / (thicknessAl * wsignal)
 var_R2 = resis_Al / (thicknessAl * wground)
 var_zc = 50
@@ -138,7 +139,7 @@ ind_Variables = {
 #	}
 
 def create_global_vars_matrix():
-	matrix = numpy.zeros((54,2), dtype = 'U50')
+	matrix = numpy.zeros((55,2), dtype = 'U50')
 	matrix[0] = ["wsignal:", wsignal]
 	matrix[1] = ["wground:", wground]
 	matrix[2] = ["wgap:", wgap]
@@ -193,6 +194,7 @@ def create_global_vars_matrix():
 	matrix[51] = ["angle:", angle]
 	matrix[52] = ["Hubx: ", Hubx]
 	matrix[53] = ["omegaU: ", omegaU]
+	matrix[54] = ["var_Ys: ", var_ys]
 	return matrix
 
 def update_global_vars(indV):
@@ -1179,6 +1181,8 @@ def create_JJI_A_matrix(num_signal, num_ground, num_tot, G_vecs):
 		for j in range(num_signal):
 			A[i, j+num_ground] = G32_neg[abs(num_ground-1-i+j)] * del_width
 			A[i+num_ground+num_signal, j+num_ground] = G32_pos[i+num_signal-1-j] * del_width
+	for i in range(num_tot):						#changed added the conductivity to the diagonal element of the matrix.
+		A[i,i]=A[i,i] + var_Ys
 
 	return A
 
@@ -1199,12 +1203,12 @@ def create_JJI_I_matrix(ww_vecs, num_signal, num_ground, num_total):
 
 def create_JJI_AL_matrix(Y11, matrix_Z):
 	AL = numpy.zeros((5,5), dtype = numpy.complex128)
-	AL[3,0] = -(var_R1 + matrix_Z[0,0] - matrix_Z[1,0])
-	AL[4,0] = -(var_R1 + matrix_Z[0,0] - matrix_Z[2,0])
-	AL[3,1] = var_R2 - matrix_Z[0,1] + matrix_Z[1,1]
+	AL[3,0] = -(var_R1*0 + matrix_Z[0,0] - matrix_Z[1,0])  #changed we have now already accounted for the resistivity in the solution of: E=Integral(Greens*j) and thus no longer need it here
+	AL[4,0] = -(var_R1*0 + matrix_Z[0,0] - matrix_Z[2,0])
+	AL[3,1] = var_R2*0 - matrix_Z[0,1] + matrix_Z[1,1]
 	AL[4,1] = -(matrix_Z[0,1] - matrix_Z[2,1])
 	AL[3,2] = matrix_Z[1,2] - matrix_Z[0,2]
-	AL[4,2] = var_R2 - matrix_Z[0,2] + matrix_Z[2,2]
+	AL[4,2] = var_R2*0 - matrix_Z[0,2] + matrix_Z[2,2]
 	AL[0,3] = -Y11
 	AL[1,3] = Y11				# changed to +ve sign
 	AL[0,4] = -Y11
@@ -1960,12 +1964,12 @@ def Efield_dist_custom(H, w, Ycss, xout):
 
 def main():
 	var_time = time.time()
-	directory = 'H:/My Documents/Physics/PhD Work/Simulation Code/Python Simulation Results/20210503_fixed_ZL_S11/laptop_pc/Lower_conductivity'     #changed now storing in H drive which is backed up on the University servers
+	directory = 'H:/My Documents/Physics/PhD Work/Simulation Code/Python Simulation Results/20210503_fixed_ZL_S11/laptop_pc/ResistanceFormalism'     #changed now storing in H drive which is backed up on the University servers
 	print("Start: antennaCalcs()")
 	var_Ycss = antennaCalcs()
 	print(var_Ycss)
 
-	average_simulation_time = sim_varying_args(directory, var_Ycss, -2.464*10**-6, 2.464*10**-6, 2, 'distance_Antennas', id="quarter_conductivities")
+	average_simulation_time = sim_varying_args(directory, var_Ycss, -2.464*10**-6, 2.464*10**-6, 2, 'distance_Antennas', id="default_parameters")
 	total_time = time.time() - var_time
 	numpy.savetxt(os.path.join(directory, "times.csv"), numpy.array(((average_simulation_time, total_time),)), delimiter = ",", header = "Average Simulation Time, Total Time")
 	
