@@ -22,9 +22,9 @@ epsZero = 8.85 * 10 ** -12
 muZero = 4 * numpy.pi * 10 ** -7
 
 #Antenna Geometry
-wsignal = 648 * 10 ** -9				#changed antenna widths to smaller antenna
-wground = 324 * 10 ** -9
-wgap = 334 * 10 ** -9
+wsignal = 810 * 10 ** -9#648 * 10 ** -9				#changed antenna widths to smaller antenna
+wground = 450 * 10 ** -9#324 * 10 ** -9
+wgap = 180 * 10 ** -9#334 * 10 ** -9
 length_Antenna = 20 * 10 ** -6
 distance_Antennas = 2.464 * 10 ** -6      #changed
 
@@ -39,7 +39,7 @@ len_JJI_Z_vec = 12+pts_total+9
 
 #Metal Characteristics
 epsilonSi = 3.8
-sigmaFM = (1.7/4) * 10 ** 7#1.7 * 10 ** 7 
+sigmaFM = 1.7 * 10 ** 7 
 sigmaRu = 1 / (71 * 10 ** -9)
 sigmaPt = 1 / (105 * 10 ** -9)
 thicknessSi = 80 * 10 ** -9
@@ -55,7 +55,7 @@ var_zc = 50
 #Frequency range to test with Simulation
 freq_lower = 2 * numpy.pi * 7 * 10 ** 9
 freq_upper = 2 * numpy.pi * 17 * 10 ** 9
-plot_pts_num = 2
+plot_pts_num = 75
 if plot_pts_num > 1:
 	freq_step = (freq_upper - freq_lower) / (plot_pts_num -1)
 else:
@@ -64,9 +64,9 @@ else:
 
 #Independent Variables
 centralFreq = numpy.pi * (2 * 15 * 10 ** 9)
-appliedH =	600*1.02 * 79.57747		#1083.24 * 79.57747
+appliedH =	10000*1.02 * 79.57747		#1083.24 * 79.57747
 gamma = 2 * numpy.pi * 3 * 10 ** 10 * 4 * numpy.pi * 10 ** -7
-ampMs = (20900 / (10 ** 4 * muZero))
+ampMs = (20900 / (10 ** 4 * muZero))#(20900 / (10 ** 4 * muZero))
 gilDamping = 0.0107
 exchangeA = 2.625 * 10 ** -7 * 10 ** -4
 surface_Ks1 = 1*3.49266*10**-3					#changed
@@ -1999,12 +1999,12 @@ def sim_varying_args(dir, Ycss, lowB, upB, pts, arg, **kwargs):
 	return 0
 
 def main():
-	directory = '/home/spintronics/SpinWave_Simulations_updated/Python Simulation Results/20210615_Paper/LowConductivities'
+	directory = '/home/mumax/Documents/Charles/SpinWave_Simulations_updated/Python Simulation Results/20210615_Paper/KsChecks'
 	print("Start: antennaCalcs()")
 	var_time = time.time()
 	var_Ycss = antennaCalcs()
 	print(var_Ycss)
-	average_simulation_time = sim_varying_args(directory, var_Ycss, -2.464*10**-6, 2.464*10**-6, 2, 'distance_Antennas', id="quarter_FM_conductivity")
+	average_simulation_time = sim_varying_args(directory, var_Ycss, -2.464*10**-6, 2.464*10**-6, 2, 'distance_Antennas', id="Default_10000_Oe_ref")
 	total_time = time.time() - var_time
 	numpy.savetxt(os.path.join(directory, "times.csv"), numpy.array(((average_simulation_time, total_time),)), delimiter = ",", header = "Average Simulation Time, Total Time")
 
