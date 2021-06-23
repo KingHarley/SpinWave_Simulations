@@ -48,6 +48,7 @@ thicknessRu = 5 * 10 ** -9
 thicknessPt = 5 * 10 ** -9
 thicknessAl = 100 * 10 ** -9
 resis_Al = 1*2.65 * 10 ** -8
+var_Ys = resis_Al / thicknessAl
 var_R1 = resis_Al / (thicknessAl * wsignal)
 var_R2 = resis_Al / (thicknessAl * wground)
 var_zc = 50
@@ -138,7 +139,7 @@ ind_Variables = {
 #	}
 
 def create_global_vars_matrix():
-	matrix = numpy.zeros((54,2), dtype = 'U50')
+	matrix = numpy.zeros((55,2), dtype = 'U50')
 	matrix[0] = ["wsignal:", wsignal]
 	matrix[1] = ["wground:", wground]
 	matrix[2] = ["wgap:", wgap]
@@ -193,6 +194,7 @@ def create_global_vars_matrix():
 	matrix[51] = ["angle:", angle]
 	matrix[52] = ["Hubx: ", Hubx]
 	matrix[53] = ["omegaU: ", omegaU]
+	matrix[54] = ["var_Ys: ", var_Ys]
 	return matrix
 
 def update_global_vars(indV):
@@ -1191,6 +1193,9 @@ def create_JJI_A_matrix(num_signal, num_ground, num_tot, G_vecs):
 			A[i, j+num_ground] = G32_neg[abs(num_ground-1-i+j)] * del_width
 			A[i+num_ground+num_signal, j+num_ground] = G32_pos[i+num_signal-1-j] * del_width
 
+	for i in range(num_tot):
+		A[i,i] = A[i,i] + var_Ys
+
 	return A
 
 # Current density in input antenna. Vector to store current density in individual strips of input antenna (Self consistent process, i.e. E = 1 in individual strips)
@@ -1210,12 +1215,12 @@ def create_JJI_I_matrix(ww_vecs, num_signal, num_ground, num_total):
 
 def create_JJI_AL_matrix(Y11, matrix_Z):
 	AL = numpy.zeros((5,5), dtype = numpy.complex128)
-	AL[3,0] = -(var_R1 + matrix_Z[0,0] - matrix_Z[1,0])
-	AL[4,0] = -(var_R1 + matrix_Z[0,0] - matrix_Z[2,0])
-	AL[3,1] = var_R2 - matrix_Z[0,1] + matrix_Z[1,1]
+	AL[3,0] = -(var_R1*0 + matrix_Z[0,0] - matrix_Z[1,0])
+	AL[4,0] = -(var_R1*0 + matrix_Z[0,0] - matrix_Z[2,0])
+	AL[3,1] = var_R2*0 - matrix_Z[0,1] + matrix_Z[1,1]
 	AL[4,1] = -(matrix_Z[0,1] - matrix_Z[2,1])
 	AL[3,2] = matrix_Z[1,2] - matrix_Z[0,2]
-	AL[4,2] = var_R2 - matrix_Z[0,2] + matrix_Z[2,2]
+	AL[4,2] = var_R2*0 - matrix_Z[0,2] + matrix_Z[2,2]
 	AL[0,3] = -Y11
 	AL[1,3] = Y11				# changed to +ve sign
 	AL[0,4] = -Y11
