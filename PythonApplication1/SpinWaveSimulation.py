@@ -28,7 +28,7 @@ wsignal = 810 * 10 ** -9#648 * 10 ** -9				#changed antenna widths to smaller an
 wground = 450 * 10 ** -9#324 * 10 ** -9
 wgap = 180 * 10 ** -9#334 * 10 ** -9
 length_Antenna = 20 * 10 ** -6
-distance_Antennas = -2.464 * 10 ** -6      #changed
+distance_Antennas = 2.464 * 10 ** -6      #changed
 
 #Setting up simulation points across Antenna
 pts_ground = 26
@@ -55,9 +55,9 @@ var_R2 = resis_Al / (thicknessAl * wground)
 var_zc = 50
 
 #Frequency range to test with Simulation
-freq_lower = 2 * numpy.pi * 1 * 10 ** 9
-freq_upper = 2 * numpy.pi * 25 * 10 ** 9
-plot_pts_num = 200
+freq_lower = 2 * numpy.pi * 7 * 10 ** 9
+freq_upper = 2 * numpy.pi * 17 * 10 ** 9
+plot_pts_num = 25
 if plot_pts_num > 1:
 	freq_step = (freq_upper - freq_lower) / (plot_pts_num -1)
 else:
@@ -66,7 +66,7 @@ else:
 
 #Independent Variables
 centralFreq = numpy.pi * (2 * 15 * 10 ** 9)
-appliedH =	10000 * 79.57747		#1083.24 * 79.57747
+appliedH =	600 * 1.02 * 79.57747		#1083.24 * 79.57747
 gamma = 2 * numpy.pi * 3 * 10 ** 10 * 4 * numpy.pi * 10 ** -7
 ampMs = (20900 / (10 ** 4 * muZero))
 gilDamping = 0.0107
@@ -78,8 +78,14 @@ surface_Ds2 = 0
 
 #New
 #changed
-hub = 1*150 * 79.57747
-angle = 90
+#Aharoni demag factors
+NAxx = 0.00
+NAzz = 0.00
+NAyy = 1 - NAxx - NAzz
+
+#Bulk easy axis anisotropy
+Hubx = 1*150 * 79.57747
+Hubz = 0
 
 def radians(x):
 	return x * numpy.pi / 180
@@ -91,11 +97,14 @@ if appliedH != 0:
 	satMs =  ampMs  * numpy.sign(appliedH)
 else:
 	satMs = ampMs
-Hubx = numpy.sign(appliedH) * hub * numpy.absolute(numpy.sin(radians(angle)))		#changed
-Hi = appliedH + numpy.sign(appliedH) * hub * numpy.absolute(numpy.cos(radians(angle)))	#changed
+Hi = appliedH - NAzz*satMs*numpy.sign(appliedH) + Hubz*numpy.sign(appliedH)	#changed
 omegaH =  gamma  *  Hi										#changed  
 omegaM =  gamma  *  ampMs  * numpy.sign( appliedH ) 
-omegaU = gamma * Hubx
+#Dynamic effective fields due to shape anisotropy and magnetocrystalline anisotropy
+omegaUx = gamma * (NAxx * satMs - Hubx)
+nAyy = 1 - NAyy
+omegaUy = -1 * gamma * satMs * nAyy
+
 alphaExchange = 2 *  exchangeA  / (muZero * ( satMs ** 2)) 
 applied_Hu1 = 2 *  surface_Ks1  / (muZero * abs(satMs)) 
 applied_Hu2 = 2 *  surface_Ks2  / (muZero * abs(satMs)) 
@@ -115,8 +124,11 @@ ind_Variables = {
 	"ampMs": ampMs,
 	"gilDamping": gilDamping,
 	"exchangeA": exchangeA,
-	"hub": hub,
-	"angle": angle,
+	"NAxx": NAxx,
+	"NAyy": NAyy,
+	"NAzz": NAzz,
+	"Hubx": Hubx,
+	"Hubz": Hubz,
 	"surface_Ks1": surface_Ks1,
 	"surface_Ks2": surface_Ks2,
 	"surface_Ds1": surface_Ds1,
@@ -139,7 +151,7 @@ ind_Variables = {
 #	}
 
 def create_global_vars_matrix():
-	matrix = numpy.zeros((55,2), dtype = 'U50')
+	matrix = numpy.zeros((59,2), dtype = 'U50')
 	matrix[0] = ["wsignal:", wsignal]
 	matrix[1] = ["wground:", wground]
 	matrix[2] = ["wgap:", wgap]
@@ -189,12 +201,16 @@ def create_global_vars_matrix():
 	matrix[46] = ["pinning_d2x:", pinning_d2x]
 	matrix[47] = ["bulk_DD1:", bulk_DD1]
 	matrix[48] = ["bulk_DD2:", bulk_DD2]
-	matrix[49] = ["hub:", hub]
-	matrix[50] = ["Hi:", Hi]
-	matrix[51] = ["angle:", angle]
+	matrix[49] = ["Hubx:", Hubx]
+	matrix[50] = ["Hubz:", Hubz]
+	matrix[51] = ["Hi:", Hi]
 	matrix[52] = ["Hubx: ", Hubx]
-	matrix[53] = ["omegaU: ", omegaU]
-	matrix[54] = ["var_Ys: ", var_Ys]
+	matrix[53] = ["omegaUx: ", omegaUx]
+	matrix[54] = ["omegaUy: ", omegaUy]
+	matrix[55] = ["var_Ys: ", var_Ys]
+	matrix[56] = ["NAxx: ", NAxx]
+	matrix[57] = ["NAyy: ", NAyy]
+	matrix[58] = ["NAzz: ", NAzz]
 	return matrix
 
 def update_global_vars(indV):
@@ -237,8 +253,6 @@ def update_global_vars(indV):
 	ampMs = indV["ampMs"]
 	gilDamping = indV["gilDamping"]
 	exchangeA = indV["exchangeA"]
-	hub = indV["hub"]
-	angle = indV["angle"]
 	surface_Ks1 = indV["surface_Ks1"]
 	surface_Ks2 = indV["surface_Ks2"]
 	surface_Ds1 = indV["surface_Ds1"]
@@ -249,11 +263,13 @@ def update_global_vars(indV):
 		satMs =  ampMs  * numpy.sign(appliedH)
 	else:
 		satMs = ampMs
-	Hubx = numpy.sign(appliedH) * hub * numpy.absolute(numpy.sin(radians(angle)))		#changed
-	Hi = appliedH + numpy.sign(appliedH) * hub * numpy.absolute(numpy.cos(radians(angle)))	#changed
+	Hi = appliedH - NAzz*satMs*numpy.sign(appliedH) + Hubz*numpy.sign(appliedH)	#changed
 	omegaH= gamma *  Hi
 	omegaM= gamma * satMs
-	omegaU = gamma * Hubx
+	#New effective fields in x and y direction (dynamic components)
+	omegaUx = gamma * (NAxx*satMs - Hubx)
+	nAyy = 1 - NAyy
+	omegaUy = -1*gamma * satMs * nAyy
 	alphaExchange= 2 * exchangeA / (muZero * (satMs) ** 2)
 	applied_Hu1= 2 * surface_Ks1 / (muZero * abs(satMs))
 	applied_Hu2= 2 * surface_Ks2 / (muZero * abs(satMs))
@@ -700,7 +716,7 @@ def create_b_var(k, wH, w):
 	secondTerm = -alphaExchange * omegaM ** 2
 	thirdTerm = -2 * wH * alphaExchange * omegaM
 	fourthTerm = -1 * alphaExchange ** 2 * w * sigmaFM * muZero * omegaM ** 2 * 1j
-	fifthTerm = alphaExchange * omegaM * omegaU			#changed
+	fifthTerm = -1 * alphaExchange * omegaM * (omegaUx + omegaUy)			#changed
 	result = firstTerm + secondTerm + thirdTerm + fourthTerm + fifthTerm
 	return result
 
@@ -720,7 +736,7 @@ def create_c_var(k, wH, w):
 	fourthTerm = -1 * w ** 2
 	fifthTerm = omegaM * wH
 	#changed
-	sixthTerm = -1 * (2 * alphaExchange * omegaM * k ** 2 + wH + omegaM + alphaExchange * w * sigmaFM * muZero * omegaM * 1j) * omegaU
+	sixthTerm = -1 * ((-2 * alphaExchange * omegaM * k ** 2 - wH - omegaUx - alphaExchange * w * sigmaFM * muZero * omegaM * 1j) * omegaUy - omegaUx * (2 * alphaExchange * omegaM * k ** 2 + wH + omegaM + alphaExchange * w * sigmaFM * muZero * omegaM * 1j))
 
 	result = firstTerm.sum() * alphaExchange ** 2 + secondTerm.sum() * alphaExchange + thirdTerm + fourthTerm + fifthTerm + sixthTerm
 	return result
@@ -747,14 +763,23 @@ def create_d_var(k, wH, w):
 	thirdTerm[6] = w ** 3 * sigmaFM * muZero * 1j
 
 	#changed
-	fourthTerm = numpy.zeros(5, dtype = numpy.complex128)
-	fourthTerm[0] = -1 * k ** 2 * wH
-	fourthTerm[1] = -1 * alphaExchange * k ** 4 * omegaM
-	fourthTerm[2] = -1 * w * sigmaFM * wH * muZero * 1j
-	fourthTerm[3] = -1 * w * sigmaFM * omegaM * muZero * 1j
-	fourthTerm[4] = -1 * alphaExchange * w * sigmaFM * k ** 2 * muZero * omegaM * 1j
+	fourthTerm = numpy.zeros(6, dtype = numpy.complex128)
+	fourthTerm[0] = k ** 2 * wH
+	fourthTerm[1] = omegaUy * (k ** 2 + w * sigmaFM * muZero * 1j)
+	fourthTerm[2] = alphaExchange * k ** 4 * omegaM
+	fourthTerm[3] = w * sigmaFM * muZero * omegaM * 1j
+	fourthTerm[4] = w * sigmaFM * muZero * wH * 1j
+	fourthTerm[5] = alphaExchange * w * sigmaFM * k ** 2 * muZero * omegaM * 1j
+	
+	fifthTerm = numpy.zeros(6, dtype = numpy.complex128)
+	fifthTerm[0] = k ** 2 * wH
+	fifthTerm[1] = k ** 2 * omegaM
+	fifthTerm[2] = alphaExchange * k ** 4 * omegaM
+	fifthTerm[3] = w * sigmaFM * muZero * omegaM * 1j
+	fifthTerm[4] = w * sigmaFM * muZero * wH * 1j
+	fifthTerm[5] = alphaExchange * w * sigmaFM * k ** 2 * muZero * omegaM * 1j
 	#changed
-	result = firstTerm.sum() * alphaExchange ** 2 + secondTerm.sum() * alphaExchange + thirdTerm.sum() - fourthTerm.sum() * omegaU
+	result = firstTerm.sum() * alphaExchange ** 2 + secondTerm.sum() * alphaExchange + thirdTerm.sum() - fourthTerm.sum() * omegaUx - fifthTerm.sum() * omegaUy
 	return result
 
 @jit(nopython=True)
@@ -1964,12 +1989,12 @@ def Efield_dist_custom(H, w, Ycss, xout):
 
 def main():
 	var_time = time.time()
-	directory = 'H:/My Documents/Physics/PhD Work/Simulation Code/Python Simulation Results/20210623_Conductivity/ExperimentFields'     #changed now storing in H drive which is backed up on the University servers
+	directory = 'H:/My Documents/Physics/PhD Work/Simulation Code/Python Simulation Results/20210720_AharoniDemag/ExperimentFit'     #changed now storing in H drive which is backed up on the University servers
 	print("Start: antennaCalcs()")
 	var_Ycss = antennaCalcs()
 	print(var_Ycss)
 
-	average_simulation_time = sim_varying_args(directory, var_Ycss, -2.464 * 10 ** -6, 2.464 * 10 ** -6, 2, 'distance_Antennas', id="new-default_field-checks_10KOe_ref")
+	average_simulation_time = sim_varying_args(directory, var_Ycss, -2.464 * 10 ** -6, 2.464 * 10 ** -6, 2, 'distance_Antennas', id="defaultparams_Aharoni_Ny=1_Nz=Nx=0")
 	total_time = time.time() - var_time
 	numpy.savetxt(os.path.join(directory, "times.csv"), numpy.array(((average_simulation_time, total_time),)), delimiter = ",", header = "Average Simulation Time, Total Time")
 	
