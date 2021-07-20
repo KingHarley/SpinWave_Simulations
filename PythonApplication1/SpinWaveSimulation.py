@@ -28,7 +28,7 @@ wsignal = 810 * 10 ** -9#648 * 10 ** -9				#changed antenna widths to smaller an
 wground = 450 * 10 ** -9#324 * 10 ** -9
 wgap = 180 * 10 ** -9#334 * 10 ** -9
 length_Antenna = 20 * 10 ** -6
-distance_Antennas = 2.464 * 10 ** -6      #changed
+distance_Antennas = -2.464 * 10 ** -6      #changed
 
 #Setting up simulation points across Antenna
 pts_ground = 26
@@ -55,9 +55,9 @@ var_R2 = resis_Al / (thicknessAl * wground)
 var_zc = 50
 
 #Frequency range to test with Simulation
-freq_lower = 2 * numpy.pi * 7 * 10 ** 9
-freq_upper = 2 * numpy.pi * 17 * 10 ** 9
-plot_pts_num = 25
+freq_lower = 2 * numpy.pi * 1 * 10 ** 9
+freq_upper = 2 * numpy.pi * 25 * 10 ** 9
+plot_pts_num = 200
 if plot_pts_num > 1:
 	freq_step = (freq_upper - freq_lower) / (plot_pts_num -1)
 else:
@@ -66,7 +66,7 @@ else:
 
 #Independent Variables
 centralFreq = numpy.pi * (2 * 15 * 10 ** 9)
-appliedH =	600*1.02 * 79.57747		#1083.24 * 79.57747
+appliedH =	10000 * 79.57747		#1083.24 * 79.57747
 gamma = 2 * numpy.pi * 3 * 10 ** 10 * 4 * numpy.pi * 10 ** -7
 ampMs = (20900 / (10 ** 4 * muZero))
 gilDamping = 0.0107
@@ -78,7 +78,7 @@ surface_Ds2 = 0
 
 #New
 #changed
-hub = 1*188 * 79.57747
+hub = 1*150 * 79.57747
 angle = 90
 
 def radians(x):
@@ -194,7 +194,7 @@ def create_global_vars_matrix():
 	matrix[51] = ["angle:", angle]
 	matrix[52] = ["Hubx: ", Hubx]
 	matrix[53] = ["omegaU: ", omegaU]
-	matrix[54] = ["var_Ys: ", var_ys]
+	matrix[54] = ["var_Ys: ", var_Ys]
 	return matrix
 
 def update_global_vars(indV):
@@ -1951,8 +1951,8 @@ def Efield_dist_custom(H, w, Ycss, xout):
 	out_matrix = numpy.column_stack((out_matrix, numpy.absolute(efield)))
 	out_matrix = numpy.column_stack((out_matrix, numpy.unwrap(numpy.angle(efield))))
 
-	directory = 'H:/My Documents/Physics/PhD Work/Simulation Code/Python Simulation Results/Output Tests'
-	file = 'Efield_x-distance_' + str(w/(2*numpy.pi))
+	directory = 'H:/My Documents/Physics/PhD Work/Simulation Code/Python Simulation Results/20210623_Conductivity/ElectricField'
+	file = 'Efield_x-distance_0.5umstep_' + str(w/(2*numpy.pi))
 	file_tosave = os.path.join(directory, file)
 
 	head = "x, Re(E), Im(E), |E|, arg(E)"
@@ -1964,12 +1964,12 @@ def Efield_dist_custom(H, w, Ycss, xout):
 
 def main():
 	var_time = time.time()
-	directory = 'H:/My Documents/Physics/PhD Work/Simulation Code/Python Simulation Results/20210503_fixed_ZL_S11/laptop_pc/ResistanceFormalism'     #changed now storing in H drive which is backed up on the University servers
+	directory = 'H:/My Documents/Physics/PhD Work/Simulation Code/Python Simulation Results/20210623_Conductivity/ExperimentFields'     #changed now storing in H drive which is backed up on the University servers
 	print("Start: antennaCalcs()")
 	var_Ycss = antennaCalcs()
 	print(var_Ycss)
 
-	average_simulation_time = sim_varying_args(directory, var_Ycss, -2.464*10**-6, 2.464*10**-6, 2, 'distance_Antennas', id="default_parameters")
+	average_simulation_time = sim_varying_args(directory, var_Ycss, -2.464 * 10 ** -6, 2.464 * 10 ** -6, 2, 'distance_Antennas', id="new-default_field-checks_10KOe_ref")
 	total_time = time.time() - var_time
 	numpy.savetxt(os.path.join(directory, "times.csv"), numpy.array(((average_simulation_time, total_time),)), delimiter = ",", header = "Average Simulation Time, Total Time")
 	
@@ -1977,12 +1977,12 @@ def main():
 
 	#t = time.time()
 	#print("Start: ", t)
-	#freq = 19*10**9 * 2*numpy.pi
+	#freq = 17.886*10**9 * 2*numpy.pi
 	#####print(Gind(0.1*10**-6, freq))
 	#####print(MM(1,1,1))
 	#####print(MM(3.8*10**6,gamma*(appliedH+del_H(centralFreq)),centralFreq))
 	#xvals = numpy.arange(0.1*10**6,10*10**6,1*10**4,dtype=numpy.float)
-	###xdist = numpy.arange(0.1*10**-6, 5*10**-6, 0.1*10**-6, dtype=numpy.float)
+	#xdist = numpy.arange(0.1*10**-6, 5*10**-6, 0.1*10**-6, dtype=numpy.float)
 	####xfreqs=2*numpy.pi*numpy.arange(4*10**9,18*10**9,0.1*10**8,dtype=numpy.float)
 	###xfreqsplot = xfreqs / (2*numpy.pi)
 	#y1 = mm_plot(xvals, freq)
@@ -2015,13 +2015,13 @@ def main():
 	####plt.plot(xfreqsplot, y4freqs, 'y-')
 	#plt.show()
 
-	#directory = 'H:/My Documents/Physics/PhD Work/Simulation Code/Python Simulation Results/Output Tests/MM'
-	#file = 'Symmetric_19GHz_FM_layer_normal'
+	#directory = 'H:/My Documents/Physics/PhD Work/Simulation Code/Python Simulation Results/20210623_Conductivity/ElectricField'
+	#file = 'Greensfunction_'+str(freq / (2*numpy.pi*10**9))+'GHz'
 	#file_tosave = os.path.join(directory, file)
 
 	#xout = xvals
 	#yout = y1
-	#outmatrix = numpy.column_stack((xout, y1, y2))
+	#outmatrix = numpy.column_stack((xout, y1))
 
 	#def egVec(z, H, w):
 	#	return eG(H, z, w)
@@ -2042,7 +2042,7 @@ def main():
 	#plt.show()
 
 
-	#numpy.savetxt(file_tosave + ".csv",outmatrix, delimiter=',', header = "k, S21, S12")
+	#numpy.savetxt(file_tosave + ".csv",outmatrix, delimiter=',', header = "k, MM")
 	#numpy.savetxt(file_tosave + "_vars.txt", create_global_vars_matrix(), fmt = "%s")
 	##print(eG(Hi+del_H(freq), 1*10**-5, freq))
 	#print("Finish: ", time.time()-t)
@@ -2051,7 +2051,7 @@ def main():
 	#xvals = numpy.zeros(50, dtype=numpy.float)
 	###xoutantenna = create_xi_vec()
 	#for i in range(len(xvals)):
-	#	xvals[i] = i*0.1*10**-6 + 2*10**-6
+	#	xvals[i] = i*0.5*10**-6 + 2*10**-6
 	##print("xvals: ", xvals)
 	#Efield_dist_custom(Hi, freq, var_Ycss, xvals)
 	##Efield_dist(Hi, freq, var_Ycss)
